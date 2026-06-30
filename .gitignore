@@ -1,0 +1,6 @@
+_reference/
+out/
+tests/tmp/
+smudgec
+smudgec.exe
+*.o
