@@ -49,7 +49,7 @@ char *read_identifier(FILE *input_file,int first_ch)
 
 
 
-int scan_file(FILE *input_file, FILE *output_file)
+int scan_file(FILE *input_file, FILE *output_file, ScannerOptions options)
 {
     SymbolTable table;
     symbol_table_init(&table);
@@ -137,44 +137,79 @@ int scan_file(FILE *input_file, FILE *output_file)
 
 
         /* Comment Handler*/
+
         if (ch == '/')
         {
             int next = fgetc(input_file);
 
             if (next == '/')
             {
-                fputc(ch, output_file);
-                fputc(next, output_file);
-
-                while ((ch = fgetc(input_file)) != EOF)
+                if (options.strip_comments)
                 {
-                    fputc(ch, output_file);
-
-                    if (ch == '\n')
+                    while ((ch = fgetc(input_file)) != EOF)
                     {
-                        break;
+                        if (ch == '\n')
+                        {
+                            fputc('\n', output_file);
+                            break;
+                        }
                     }
                 }
+                else
+                {
+                    fputc(ch, output_file);
+                    fputc(next, output_file);
+
+                    while ((ch = fgetc(input_file)) != EOF)
+                    {
+                        fputc(ch, output_file);
+
+                        if (ch == '\n')
+                        {
+                            break;
+                        }
+                    }
+                }
+
                 at_line_start = 1;
                 continue;
             }
             else if (next == '*')
             {
-                fputc(ch, output_file);
-                fputc(next, output_file);
-
-                int previous = 0;
-
-                while ((ch = fgetc(input_file)) != EOF)
+                if (options.strip_comments)
                 {
-                    fputc(ch, output_file);
+                    int previous = 0;
 
-                    if (previous == '*' && ch == '/')
+                    while ((ch = fgetc(input_file)) != EOF)
                     {
-                        break;
+                        if (previous == '*' && ch == '/')
+                        {
+                            break;
+                        }
+
+                        previous = ch;
                     }
 
-                    previous = ch;
+                    fputc(' ', output_file);
+                }
+                else
+                {
+                    fputc(ch, output_file);
+                    fputc(next, output_file);
+
+                    int previous = 0;
+
+                    while ((ch = fgetc(input_file)) != EOF)
+                    {
+                        fputc(ch, output_file);
+
+                        if (previous == '*' && ch == '/')
+                        {
+                            break;
+                        }
+
+                        previous = ch;
+                    }
                 }
 
                 continue;

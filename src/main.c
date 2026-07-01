@@ -1,44 +1,46 @@
 #include <stdio.h>
-#include <sys/stat.h>
 #include <string.h>
+
 #include "scanner.h"
-
-
+#include "path_utils.h"
 
 int main(int argc, char **argv)
 {
 
     /* FILE MANAGEMENT ---------------------------------------------------- */
+    ScannerOptions options;
+    options.strip_comments = 0;
+    char *input_path;
 
-    if(argc != 2)
+    // argument parsing
+
+    if (argc == 2)
     {
-        printf("usage: smudgec input.c\n");
-        return 1;
+        input_path = argv[1];
     }
-
-    char *input_path = argv[1];
-    char *slash = strrchr(input_path,'/');
-    char *filename;
-    // finding the filename from the folder
-    if(slash != NULL)
+    else if (argc == 3 && strcmp(argv[1], "--strip-comments") == 0)
     {
-        filename = slash + 1;
+        options.strip_comments = 1;
+        input_path = argv[2];
     }
     else
-    {  
-        filename = input_path;
-    }
-
-    // finding the extension type from the filename
-    char *dot = strrchr(filename,'.');
-    if(dot == NULL)
     {
-        printf("expected a .c file\n");
+        printf("usage: smudgec [--strip-comments] input.c\n");
         return 1;
     }
-    int name_length = dot - filename;
+
+    if (validate_input_path(input_path) != 0)
+    {
+        return 1;
+    }
+
+    // build output_path
     char output_path[256];
-    snprintf(output_path, sizeof(output_path), "out/%.*s_obfuscated.c", name_length, filename);
+    if (build_output_path(input_path, output_path, sizeof(output_path)) != 0)
+    {
+        return 1;
+    }
+
 
 
     FILE *input_file = fopen(input_path, "r");
@@ -49,7 +51,11 @@ int main(int argc, char **argv)
     }
 
 
-    mkdir("out",0755);
+    if (ensure_output_directory() != 0)
+    {
+        fclose(input_file);
+        return 1;
+    }
 
     FILE *output_file = fopen(output_path, "w");
     if(output_file == NULL)
@@ -61,7 +67,8 @@ int main(int argc, char **argv)
 
     /* ----------------------------------------------------------------- */
 
-    if (scan_file(input_file,output_file) != 0)
+
+    if (scan_file(input_file,output_file,options) != 0)
     {
         printf("smudgeC: failed to scan input\n");
         fclose(input_file);
