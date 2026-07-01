@@ -3,6 +3,51 @@
 
 #include <ctype.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+char *read_identifier(FILE *input_file,int first_ch)
+{
+    int buffer_size = 16;
+    int length = 0;
+    int ch;
+    char *buffer = malloc(buffer_size*sizeof(char));
+    if (buffer == NULL)
+    {
+        return NULL;
+    }
+    buffer[length] = first_ch;
+    length += 1;
+
+    while ((ch = fgetc(input_file)) != EOF)
+    {
+        if (!(isalnum(ch) || ch == '_'))
+        {
+            ungetc(ch, input_file);
+            break;
+        }
+        if (length == buffer_size - 1)
+        {
+            buffer_size = buffer_size*2;
+            char *temp_buffer = realloc(buffer, buffer_size);
+            if (temp_buffer == NULL)
+            {
+                free(buffer);
+                return NULL;
+            }
+            buffer = temp_buffer;
+        }
+        buffer[length] = ch;
+        length += 1;
+    }
+
+    buffer[length] = '\0';
+    return buffer;
+}
+
+
+
+
 
 int scan_file(FILE *input_file, FILE *output_file)
 {
@@ -147,38 +192,33 @@ int scan_file(FILE *input_file, FILE *output_file)
 
         if(isalpha(ch) || ch == '_')
         {
-            char identifier[128];
-            int length = 0;
-            identifier[length] = ch;
-            length++;
-
-            while ((ch = fgetc(input_file)) != EOF && (isalnum(ch) || ch == '_'))
+            char *identifier = read_identifier(input_file, ch);
+            if(identifier == NULL)
             {
-                identifier[length] = ch;
-                length++;
-            }
-
-            identifier[length] = '\0';
-            if (ch != EOF)
-            {
-                ungetc(ch, input_file);
+                symbol_table_free(&table);
+                return 1;
             }
             
             if (is_keyword(identifier))
             {
-                printf("keyword: %s\n", identifier);
                 fputs(identifier, output_file);
             }
             else if (is_protected_identifier(identifier))
             {
-                printf("protected: %s\n", identifier);
                 fputs(identifier, output_file);
             }
             else
             {
                 char *obfuscated_name = get_obfuscated_name(&table, identifier);
+                if (obfuscated_name == NULL)
+                {
+                    symbol_table_free(&table);
+                    free(identifier);
+                    return 1;
+                }
                 fputs(obfuscated_name, output_file);
             }
+            free(identifier);
             continue;
         }
 
@@ -192,5 +232,6 @@ int scan_file(FILE *input_file, FILE *output_file)
             at_line_start = 0;
         }
     }   
+    symbol_table_free(&table);
     return 0;
 }

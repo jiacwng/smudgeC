@@ -1,6 +1,7 @@
 _reference/
 out/
 tests/tmp/
+tests/fixtures/
 smudgec
 smudgec.exe
 *.o

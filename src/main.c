@@ -28,7 +28,7 @@ int main(int argc, char **argv)
     {  
         filename = input_path;
     }
-    printf("filename: %s\n", filename);
+
     // finding the extension type from the filename
     char *dot = strrchr(filename,'.');
     if(dot == NULL)
@@ -39,7 +39,7 @@ int main(int argc, char **argv)
     int name_length = dot - filename;
     char output_path[256];
     snprintf(output_path, sizeof(output_path), "out/%.*s_obfuscated.c", name_length, filename);
-    printf("output path: %s\n", output_path);
+
 
     FILE *input_file = fopen(input_path, "r");
     if(input_file == NULL)
@@ -47,7 +47,7 @@ int main(int argc, char **argv)
         perror("smudgec");
         return 1;
     }
-    printf("opened: %s\n",input_path);
+
 
     mkdir("out",0755);
 
@@ -61,10 +61,17 @@ int main(int argc, char **argv)
 
     /* ----------------------------------------------------------------- */
 
-    scan_file(input_file,output_file);
-
+    if (scan_file(input_file,output_file) != 0)
+    {
+        printf("smudgeC: failed to scan input\n");
+        fclose(input_file);
+        fclose(output_file);
+        return 1;
+    }
 
     printf("wrote: %s\n", output_path);
+
+
     fclose(input_file);
     fclose(output_file);
     return 0;

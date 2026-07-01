@@ -1,6 +1,7 @@
 #include "names.h"
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 
 /* keyword identification to separate them from identifiers */
 
@@ -84,30 +85,77 @@ int is_protected_identifier(char *word)
 
 void symbol_table_init(SymbolTable *table)
 {
-    table->symbol_count = 0;
+    table->symbols = NULL;
+    table->count = 0;
+    table->capacity = 0;
+}
+
+void symbol_table_free(SymbolTable *table)
+{
+    for (int i = 0; i < table->count; i++)
+    {
+        free(table->symbols[i].original);
+        free(table->symbols[i].obfuscated);
+    }
+    free(table->symbols);
+
+    symbol_table_init(table);
 }
 
 
 char *get_obfuscated_name(SymbolTable *table, char *identifier)
 {
-    for (int i = 0; i < table->symbol_count; i++)
+    for (int i = 0; i < table->count; i++)
     {
-        if (strcmp(table->original_names[i], identifier) == 0)
+        if (strcmp(table->symbols[i].original, identifier) == 0)
         {
-            return table->obfuscated_names[i];
+            return table->symbols[i].obfuscated;
         }
     }
 
-    snprintf(
-        table->obfuscated_names[table->symbol_count],
-        sizeof(table->obfuscated_names[table->symbol_count]),
-        "_sm%d",
-        table->symbol_count
-    );
+    // grow table if full
+    if (table->count == table->capacity)
+    {
+        if (table->capacity == 0)
+        {
+            table->capacity += 8;
+        }
+        else
+        {
+            table->capacity = table->capacity * 2;
+        }
+        Symbol *temp_symbols = realloc(table->symbols, sizeof(Symbol) * table->capacity);
 
-    strcpy(table->original_names[table->symbol_count], identifier);
-    table->symbol_count++;
-    
-    return table->obfuscated_names[table->symbol_count - 1];
+        if (temp_symbols == NULL)
+        {
+            return NULL;
+        }
+
+        table->symbols = temp_symbols;
+    }
+
+    // store new symbol
+    char *original = malloc(strlen(identifier) + 1);
+    if (original == NULL)
+    {
+        return NULL;
+    }
+    strcpy(original,identifier);
+
+    char temp_name[32];
+    snprintf(temp_name, sizeof(temp_name), "_sm%d", table->count);
+    char *obfuscated = malloc(strlen(temp_name) + 1);
+    if (obfuscated == NULL)
+    {
+        free(original);
+        return NULL;
+    }
+    strcpy(obfuscated,temp_name);
+
+    table->symbols[table->count].original = original;
+    table->symbols[table->count].obfuscated = obfuscated;
+    table->count += 1;
+
+    return table->symbols[table->count - 1].obfuscated;
 
 }
