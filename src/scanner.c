@@ -6,6 +6,14 @@
 #include <stdlib.h>
 #include <string.h>
 
+void scanner_options_init(ScannerOptions *options)
+{
+    options->strip_comments = 0;
+    options->encode_ints = 0;
+    options->encode_strings = 0;
+}
+
+
 char *read_identifier(FILE *input_file,int first_ch)
 {
     int buffer_size = 16;
@@ -513,7 +521,7 @@ int scan_file(FILE *input_file, FILE *output_file, ScannerOptions options)
             }
 
             continue;
-            
+
         }
 
 

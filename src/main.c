@@ -10,9 +10,7 @@ int main(int argc, char **argv)
 
     /* FILE MANAGEMENT ---------------------------------------------------- */
     ScannerOptions options;
-    options.strip_comments = 0;
-    options.encode_ints = 0;
-    options.encode_strings = 0;
+    scanner_options_init(&options);
     char *input_path;
 
     // argument parsing
