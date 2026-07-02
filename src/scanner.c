@@ -239,6 +239,182 @@ static int handle_string(
     return 0;
 }
 
+static int handle_char_literal(FILE *input_file, FILE *output_file)
+{
+    int ch;
+
+    fputc('\'', output_file);
+
+    while ((ch = fgetc(input_file)) != EOF)
+    {
+        fputc(ch, output_file);
+
+        if (ch == '\\')
+        {
+            ch = fgetc(input_file);
+            if (ch == EOF)
+            {
+                break;
+            }
+
+            fputc(ch, output_file);
+        }
+        else if (ch == '\'')
+        {
+            break;
+        }
+    }
+
+    return 0;
+}
+
+static int handle_comment(
+    FILE *input_file,
+    FILE *output_file,
+    ScannerOptions options,
+    int *handled_comment,
+    int *at_line_start
+)
+{
+    int ch;
+    int next = fgetc(input_file);
+
+    *handled_comment = 0;
+
+    if (next == '/')
+    {
+        if (options.strip_comments)
+        {
+            while ((ch = fgetc(input_file)) != EOF)
+            {
+                if (ch == '\n')
+                {
+                    fputc('\n', output_file);
+                    break;
+                }
+            }
+        }
+        else
+        {
+            fputc('/', output_file);
+            fputc(next, output_file);
+
+            while ((ch = fgetc(input_file)) != EOF)
+            {
+                fputc(ch, output_file);
+
+                if (ch == '\n')
+                {
+                    break;
+                }
+            }
+        }
+
+        *at_line_start = 1;
+        *handled_comment = 1;
+        return 0;
+    }
+
+    if (next == '*')
+    {
+        int previous = 0;
+
+        if (options.strip_comments)
+        {
+            while ((ch = fgetc(input_file)) != EOF)
+            {
+                if (previous == '*' && ch == '/')
+                {
+                    break;
+                }
+
+                previous = ch;
+            }
+
+            fputc(' ', output_file);
+        }
+        else
+        {
+            fputc('/', output_file);
+            fputc(next, output_file);
+
+            while ((ch = fgetc(input_file)) != EOF)
+            {
+                fputc(ch, output_file);
+
+                if (previous == '*' && ch == '/')
+                {
+                    break;
+                }
+
+                previous = ch;
+            }
+        }
+
+        *handled_comment = 1;
+        return 0;
+    }
+
+    if (next != EOF)
+    {
+        ungetc(next, input_file);
+    }
+
+    return 0;
+}
+
+static int handle_preprocessor(FILE *input_file, FILE *output_file)
+{
+    int ch;
+
+    fputc('#', output_file);
+
+    while ((ch = fgetc(input_file)) != EOF)
+    {
+        fputc(ch, output_file);
+
+        if (ch == '\n')
+        {
+            break;
+        }
+    }
+
+    return 0;
+}
+
+static int handle_identifier(
+    FILE *input_file,
+    FILE *output_file,
+    int first_ch,
+    SymbolTable *table
+)
+{
+    char *identifier = read_identifier(input_file, first_ch);
+    if(identifier == NULL)
+    {
+        return 1;
+    }
+    
+    if (is_keyword(identifier) || is_protected_identifier(identifier))
+    {
+        fputs(identifier, output_file);
+    }
+    else
+    {
+        char *obfuscated_name = get_obfuscated_name(table, identifier);
+        if (obfuscated_name == NULL)
+        {
+            free(identifier);
+            return 1;
+        }
+        fputs(obfuscated_name, output_file);
+    }
+    free(identifier);
+    return 0;
+}
+
+
+
 
 int scan_file(FILE *input_file, FILE *output_file, ScannerOptions options)
 {
@@ -254,16 +430,10 @@ int scan_file(FILE *input_file, FILE *output_file, ScannerOptions options)
         
         if (at_line_start && ch == '#')
         {
-            fputc(ch, output_file);
-
-            while ((ch = fgetc(input_file)) != EOF)
+            if (handle_preprocessor(input_file, output_file) != 0)
             {
-                fputc(ch, output_file);
-
-                if (ch == '\n')
-                {
-                    break;
-                }
+                symbol_table_free(&table);
+                return 1;
             }
 
             at_line_start = 1;
@@ -287,25 +457,10 @@ int scan_file(FILE *input_file, FILE *output_file, ScannerOptions options)
         /* character-literal handler */
         if (ch == '\'')
         {
-            fputc(ch, output_file);
-
-            while ((ch = fgetc(input_file)) != EOF)
+            if (handle_char_literal(input_file, output_file) != 0)
             {
-                fputc(ch, output_file);
-
-                if (ch == '\\')
-                {
-                    ch = fgetc(input_file);
-                    if (ch == EOF)
-                    {
-                        break;
-                    }
-                    fputc(ch, output_file);
-                }
-                else if (ch == '\'')
-                {
-                    break;
-                }
+                symbol_table_free(&table);
+                return 1;
             }
 
             continue;
@@ -313,89 +468,22 @@ int scan_file(FILE *input_file, FILE *output_file, ScannerOptions options)
 
 
         /* Comment Handler*/
-
         if (ch == '/')
         {
-            int next = fgetc(input_file);
+            int handled_comment;
 
-            if (next == '/')
+            if (handle_comment(input_file, output_file, options, &handled_comment, &at_line_start) != 0)
             {
-                if (options.strip_comments)
-                {
-                    while ((ch = fgetc(input_file)) != EOF)
-                    {
-                        if (ch == '\n')
-                        {
-                            fputc('\n', output_file);
-                            break;
-                        }
-                    }
-                }
-                else
-                {
-                    fputc(ch, output_file);
-                    fputc(next, output_file);
-
-                    while ((ch = fgetc(input_file)) != EOF)
-                    {
-                        fputc(ch, output_file);
-
-                        if (ch == '\n')
-                        {
-                            break;
-                        }
-                    }
-                }
-
-                at_line_start = 1;
-                continue;
+                symbol_table_free(&table);
+                return 1;
             }
-            else if (next == '*')
+
+
+            /* If the slash entered the handler helper and handled_comment is not 1
+            it means it wasn't a comment slash, scan_file should continue normally */
+            if (handled_comment) 
             {
-                if (options.strip_comments)
-                {
-                    int previous = 0;
-
-                    while ((ch = fgetc(input_file)) != EOF)
-                    {
-                        if (previous == '*' && ch == '/')
-                        {
-                            break;
-                        }
-
-                        previous = ch;
-                    }
-
-                    fputc(' ', output_file);
-                }
-                else
-                {
-                    fputc(ch, output_file);
-                    fputc(next, output_file);
-
-                    int previous = 0;
-
-                    while ((ch = fgetc(input_file)) != EOF)
-                    {
-                        fputc(ch, output_file);
-
-                        if (previous == '*' && ch == '/')
-                        {
-                            break;
-                        }
-
-                        previous = ch;
-                    }
-                }
-
                 continue;
-            }
-            else
-            {
-                if (next != EOF)
-                {
-                    ungetc(next, input_file);
-                }
             }
         }
 
@@ -418,34 +506,14 @@ int scan_file(FILE *input_file, FILE *output_file, ScannerOptions options)
 
         if(isalpha(ch) || ch == '_')
         {
-            char *identifier = read_identifier(input_file, ch);
-            if(identifier == NULL)
+            if (handle_identifier(input_file, output_file, ch, &table) != 0)
             {
                 symbol_table_free(&table);
                 return 1;
             }
-            
-            if (is_keyword(identifier))
-            {
-                fputs(identifier, output_file);
-            }
-            else if (is_protected_identifier(identifier))
-            {
-                fputs(identifier, output_file);
-            }
-            else
-            {
-                char *obfuscated_name = get_obfuscated_name(&table, identifier);
-                if (obfuscated_name == NULL)
-                {
-                    symbol_table_free(&table);
-                    free(identifier);
-                    return 1;
-                }
-                fputs(obfuscated_name, output_file);
-            }
-            free(identifier);
+
             continue;
+            
         }
 
 

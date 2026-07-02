@@ -2,7 +2,7 @@ CC = gcc
 CFLAGS = -std=c99 -Wall -Wextra -pedantic
 QUIET = @
 TARGET = smudgec
-SRC = src/main.c src/scanner.c src/names.c src/path_utils.c
+SRC = src/main.c src/scanner.c src/names.c src/path_utils.c src/cli.c
 
 EXAMPLE = examples/hello.c
 OBFUSCATED = out/hello_obfuscated.c
