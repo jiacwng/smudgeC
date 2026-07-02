@@ -45,7 +45,151 @@ char *read_identifier(FILE *input_file,int first_ch)
     return buffer;
 }
 
+static char *read_number(FILE *input_file, int first_ch)
+{
+    int buffer_size = 16;
+    int length = 0;
+    int ch;
+    char *buffer = malloc(buffer_size * sizeof(char));
 
+    if (buffer == NULL)
+    {
+        return NULL;
+    }
+
+    buffer[length] = first_ch;
+    length += 1;
+
+    while ((ch = fgetc(input_file)) != EOF)
+    {
+        if (!isdigit(ch))
+        {
+            ungetc(ch, input_file);
+            break;
+        }
+
+        if (length == buffer_size - 1)
+        {
+            buffer_size *= 2;
+
+            char *temp_buffer = realloc(buffer, buffer_size);
+            if (temp_buffer == NULL)
+            {
+                free(buffer);
+                return NULL;
+            }
+
+            buffer = temp_buffer;
+        }
+
+        buffer[length] = ch;
+        length += 1;
+    }
+
+    buffer[length] = '\0';
+    return buffer;
+}
+
+static int choose_integer_key(int number)
+{
+    int key = (number * 31) % 97;
+    if (key < 0)
+    {
+        key = -key;
+    }
+    return key + 17;
+}
+
+
+
+static void write_encoded_integer(FILE *output_file, const char *number_text)
+{
+    int number = atoi(number_text);
+    if (number == 0)
+    {
+        fputs("0", output_file);
+        return;
+    }
+
+    int key = choose_integer_key(number);
+    int encoded = number ^ key;
+    fprintf(output_file, "((%d ^ %d))", encoded, key);
+}
+
+static int handle_number(
+    FILE *input_file,
+    FILE *output_file,
+    int first_ch,
+    ScannerOptions options
+)
+{
+    char* number = read_number(input_file, first_ch);
+    if (number == NULL)
+    {
+        return 1;
+    }
+
+    int next = fgetc(input_file);
+
+    if (next != EOF && (isalpha(next) || next == '_'))
+    {
+        fputs(number, output_file);
+        fputc(next, output_file);
+
+        while ((next = fgetc(input_file)) != EOF)
+        {
+            if (!(isalnum(next) || next == '_'))
+            {
+                ungetc(next, input_file);
+                break;
+            }
+
+            fputc(next, output_file);
+        }
+
+        free(number);
+        return 0;
+    }
+
+    if (next == '.')
+    {
+        fputs(number, output_file);
+        fputc(next, output_file);
+
+        while ((next = fgetc(input_file)) != EOF)
+        {
+            if (!isdigit(next))
+            {
+                ungetc(next, input_file);
+                break;
+            }
+
+            fputc(next, output_file);
+        }
+
+        free(number);
+        return 0;
+    }
+
+    if (next != EOF)
+    {
+        ungetc(next, input_file);
+    }
+
+
+
+    if (options.encode_ints == 1)
+    {
+        write_encoded_integer(output_file, number);
+    }
+    else
+    {
+        fputs(number, output_file);
+    }
+
+    free(number);
+    return 0;
+}
 
 
 
@@ -223,6 +367,21 @@ int scan_file(FILE *input_file, FILE *output_file, ScannerOptions options)
             }
         }
 
+
+        /* Number handler */ 
+        if (isdigit(ch))
+        {
+            if (handle_number(input_file, output_file, ch, options) != 0)
+            {
+                symbol_table_free(&table);
+                return 1;
+            }
+
+            continue;
+        }
+
+
+
         /* Identifier Handler */
 
         if(isalpha(ch) || ch == '_')
@@ -256,6 +415,8 @@ int scan_file(FILE *input_file, FILE *output_file, ScannerOptions options)
             free(identifier);
             continue;
         }
+
+
 
         fputc(ch, output_file); /* non identifier */
         if (ch == '\n')

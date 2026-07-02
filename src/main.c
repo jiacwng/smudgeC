@@ -4,28 +4,89 @@
 #include "scanner.h"
 #include "path_utils.h"
 
+
 int main(int argc, char **argv)
 {
 
     /* FILE MANAGEMENT ---------------------------------------------------- */
     ScannerOptions options;
     options.strip_comments = 0;
+    options.encode_ints = 0;
     char *input_path;
 
     // argument parsing
 
-    if (argc == 2)
+    input_path = NULL;
+
+    for (int i = 1; i < argc; i++)
     {
-        input_path = argv[1];
+        char *arg = argv[i];
+        if(strcmp(arg,"--strip-comments") == 0)
+        {
+            options.strip_comments = 1;
+        }
+        else if (strcmp(arg, "--encode-ints") == 0)
+        {
+            options.encode_ints = 1;
+        }
+        else if (strcmp(arg, "--help") == 0)
+        {
+            printf("usage: smudgec [options] input.c\n");
+            printf("  -s, --strip-comments    strip comments\n");
+            printf("  -e, --encode-ints       encode decimal integer literals\n");
+            printf("  -h, --help              show help\n");
+            return 0;
+        }
+        /* unknown long option */
+        else if (arg[0] == '-' && arg[1] == '-')
+        {
+            printf("unknown option: %s\n", arg);
+            printf("usage: smudgec [-s] [-e] input.c\n");
+            return 1;
+        }
+        else if (arg[0] == '-' && arg[1] != '\0')
+        {
+            for (int j = 1; arg[j] != '\0'; j++)
+            {
+                if (arg[j] == 's')
+                {
+                    options.strip_comments = 1;
+                }
+                else if (arg[j] == 'e')
+                {
+                    options.encode_ints = 1;
+                }
+                else if (arg[j] == 'h')
+                {
+                    printf("usage: smudgec [options] input.c\n");
+                    printf("  -s, --strip-comments    strip comments\n");
+                    printf("  -e, --encode-ints       encode decimal integer literals\n");
+                    printf("  -h, --help              show help\n");
+                    return 0;
+                }
+                else
+                {
+                    printf("unknown option: -%c\n", arg[j]);
+                    printf("usage: smudgec [-s] [-e] input.c\n");
+                    return 1;
+                }
+            }
+        }
+        else
+        {
+            if (input_path != NULL)
+            {
+                printf("only one input file is supported\n");
+                return 1;
+            }
+
+            input_path = arg;
+        }
     }
-    else if (argc == 3 && strcmp(argv[1], "--strip-comments") == 0)
+
+    if (input_path == NULL)
     {
-        options.strip_comments = 1;
-        input_path = argv[2];
-    }
-    else
-    {
-        printf("usage: smudgec [--strip-comments] input.c\n");
+        printf("usage: smudgec [-s] [-e] input.c\n");
         return 1;
     }
 

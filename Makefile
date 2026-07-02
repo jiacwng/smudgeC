@@ -49,6 +49,20 @@ BAD_EXTENSION_OUT = /tmp/smudgec_bad_extension.txt
 DIRECTORY_INPUT = examples
 DIRECTORY_INPUT_OUT = /tmp/smudgec_directory_input.txt
 
+INTS_EXAMPLE = tests/fixtures/ints.c
+INTS_OBFUSCATED = out/ints_obfuscated.c
+INTS_ORIGINAL_BIN = /tmp/ints_original
+INTS_OBFUSCATED_BIN = /tmp/ints_obfuscated
+INTS_ORIGINAL_OUT = /tmp/ints_original.txt
+INTS_OBFUSCATED_OUT = /tmp/ints_obfuscated.txt
+
+INT_EDGES_EXAMPLE = tests/fixtures/int_edges.c
+INT_EDGES_OBFUSCATED = out/int_edges_obfuscated.c
+INT_EDGES_ORIGINAL_BIN = /tmp/int_edges_original
+INT_EDGES_OBFUSCATED_BIN = /tmp/int_edges_obfuscated
+INT_EDGES_ORIGINAL_OUT = /tmp/int_edges_original.txt
+INT_EDGES_OBFUSCATED_OUT = /tmp/int_edges_obfuscated.txt
+
 all: $(TARGET)
 
 $(TARGET): $(SRC)
@@ -105,6 +119,56 @@ test: $(TARGET)
 	$(QUIET)rm -f out
 	$(QUIET)echo "  passed"
 
+
+	$(QUIET)# windows directory test
+
+	$(QUIET)echo "[test] windows-style path separator"
+	$(QUIET)WIN_PATH=/tmp/smudgec_win_path\\hello.c; \
+	printf '#include <stdio.h>\nint main(void){printf("win path\\n"); return 0;}\n' > "$$WIN_PATH"; \
+	./$(TARGET) "$$WIN_PATH" > /tmp/smudgec_win_path_tool.txt; \
+	test -f out/hello_obfuscated.c; \
+	$(CC) $(CFLAGS) out/hello_obfuscated.c -o /tmp/smudgec_win_path_bin; \
+	/tmp/smudgec_win_path_bin > /tmp/smudgec_win_path_out.txt; \
+	grep -q "win path" /tmp/smudgec_win_path_out.txt; \
+	rm -f "$$WIN_PATH"
+	$(QUIET)echo "  passed"
+
+	$(QUIET)# combined flags test
+
+	$(QUIET)echo "[test] combined short flags"
+	$(QUIET)./$(TARGET) -se $(SAFETY_EXAMPLE) > /tmp/smudgec_short_flags.txt
+	$(QUIET)grep -q "wrote: out/scanner_safety_obfuscated.c" /tmp/smudgec_short_flags.txt
+	$(QUIET)! grep -q "visible_name inside a line comment" $(SAFETY_OBFUSCATED)
+	$(QUIET)grep -q "visible_name inside a string" $(SAFETY_OBFUSCATED)
+	$(QUIET)echo "  passed"
+	$(QUIET)echo "[test] combined long flags"
+	$(QUIET)./$(TARGET) --strip-comments --encode-ints $(SAFETY_EXAMPLE) > /tmp/smudgec_long_flags.txt
+	$(QUIET)grep -q "wrote: out/scanner_safety_obfuscated.c" /tmp/smudgec_long_flags.txt
+	$(QUIET)! grep -q "visible_name inside a block comment" $(SAFETY_OBFUSCATED)
+	$(QUIET)grep -q "visible_name inside a string" $(SAFETY_OBFUSCATED)
+	$(QUIET)echo "  passed"
+
+	$(QUIET)# unknown option test
+
+	$(QUIET)echo "[test] reject unknown short option"
+	$(QUIET)! ./$(TARGET) -x $(EXAMPLE) > /tmp/smudgec_unknown_short.txt
+	$(QUIET)grep -q "unknown option: -x" /tmp/smudgec_unknown_short.txt
+	$(QUIET)echo "  passed"
+	$(QUIET)echo "[test] reject unknown long option"
+	$(QUIET)! ./$(TARGET) --bad $(EXAMPLE) > /tmp/smudgec_unknown_long.txt
+	$(QUIET)grep -q "unknown option: --bad" /tmp/smudgec_unknown_long.txt
+	$(QUIET)echo "  passed"
+
+	$(QUIET)# help output test
+
+	$(QUIET)echo "[test] help output"
+	$(QUIET)./$(TARGET) --help > /tmp/smudgec_help_long.txt
+	$(QUIET)./$(TARGET) -h > /tmp/smudgec_help_short.txt
+	$(QUIET)grep -q "usage: smudgec" /tmp/smudgec_help_long.txt
+	$(QUIET)grep -q "usage: smudgec" /tmp/smudgec_help_short.txt
+	$(QUIET)grep -q -- "--strip-comments" /tmp/smudgec_help_long.txt
+	$(QUIET)grep -q -- "--encode-ints" /tmp/smudgec_help_short.txt
+	$(QUIET)echo "  passed"
 
 
 	$(QUIET)# Long identifier test
@@ -174,6 +238,37 @@ test: $(TARGET)
 	$(QUIET)grep -q "switch" $(KEYWORDS_OBFUSCATED)
 	$(QUIET)grep -q "sizeof" $(KEYWORDS_OBFUSCATED)
 	$(QUIET)grep -q _sm $(KEYWORDS_OBFUSCATED)
+	$(QUIET)echo "  passed"
+
+
+	$(QUIET) # encoded ints test
+
+	$(QUIET)echo "[test] ints.c --encode-ints"
+	$(QUIET)$(CC) $(CFLAGS) $(INTS_EXAMPLE) -o $(INTS_ORIGINAL_BIN)
+	$(QUIET)$(INTS_ORIGINAL_BIN) > $(INTS_ORIGINAL_OUT)
+	$(QUIET)./$(TARGET) -e $(INTS_EXAMPLE) > /tmp/smudgec_ints_tool.txt
+	$(QUIET)$(CC) $(CFLAGS) $(INTS_OBFUSCATED) -o $(INTS_OBFUSCATED_BIN)
+	$(QUIET)$(INTS_OBFUSCATED_BIN) > $(INTS_OBFUSCATED_OUT)
+	$(QUIET)diff $(INTS_ORIGINAL_OUT) $(INTS_OBFUSCATED_OUT)
+	$(QUIET)grep -q "((47 ^ 40))" $(INTS_OBFUSCATED)
+	$(QUIET)grep -q "((16 ^ 58))" $(INTS_OBFUSCATED)
+	$(QUIET)grep -q "((46 ^ 36))" $(INTS_OBFUSCATED)
+	$(QUIET)grep -q "return 0;" $(INTS_OBFUSCATED)
+	$(QUIET)echo "  passed"
+
+	$(QUIET) # encoded int edge cases test
+
+	$(QUIET)echo "[test] int_edges.c --encode-ints"
+	$(QUIET)$(CC) $(CFLAGS) $(INT_EDGES_EXAMPLE) -o $(INT_EDGES_ORIGINAL_BIN)
+	$(QUIET)$(INT_EDGES_ORIGINAL_BIN) > $(INT_EDGES_ORIGINAL_OUT)
+	$(QUIET)./$(TARGET) -e $(INT_EDGES_EXAMPLE) > /tmp/smudgec_int_edges_tool.txt
+	$(QUIET)$(CC) $(CFLAGS) $(INT_EDGES_OBFUSCATED) -o $(INT_EDGES_OBFUSCATED_BIN)
+	$(QUIET)$(INT_EDGES_OBFUSCATED_BIN) > $(INT_EDGES_OBFUSCATED_OUT)
+	$(QUIET)diff $(INT_EDGES_ORIGINAL_OUT) $(INT_EDGES_OBFUSCATED_OUT)
+	$(QUIET)grep -q "42u" $(INT_EDGES_OBFUSCATED)
+	$(QUIET)grep -q "3.14" $(INT_EDGES_OBFUSCATED)
+	$(QUIET)grep -q "((79 ^ 71))" $(INT_EDGES_OBFUSCATED)
+	$(QUIET)grep -q "return 0;" $(INT_EDGES_OBFUSCATED)
 	$(QUIET)echo "  passed"
 
 	$(QUIET)echo "[ok] all tests passed"
