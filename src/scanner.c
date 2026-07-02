@@ -192,6 +192,53 @@ static int handle_number(
 }
 
 
+static void write_encoded_string_char(FILE *output_file, int ch)
+{
+    fprintf(output_file, "\\x%02X", (unsigned char)ch);
+}
+
+static int handle_string(
+    FILE *input_file,
+    FILE *output_file,
+    ScannerOptions options
+)
+{
+    int ch;
+
+    fputc('"', output_file);
+
+    while ((ch = fgetc(input_file)) != EOF)
+    {
+        if (ch == '\\')
+        {
+            fputc(ch, output_file);
+
+            ch = fgetc(input_file);
+            if (ch == EOF)
+            {
+                break;
+            }
+
+            fputc(ch, output_file);
+        }
+        else if (ch == '"')
+        {
+            fputc(ch, output_file);
+            break;
+        }
+        else if (options.encode_strings)
+        {
+            write_encoded_string_char(output_file, ch);
+        }
+        else
+        {
+            fputc(ch, output_file);
+        }
+    }
+
+    return 0;
+}
+
 
 int scan_file(FILE *input_file, FILE *output_file, ScannerOptions options)
 {
@@ -227,25 +274,10 @@ int scan_file(FILE *input_file, FILE *output_file, ScannerOptions options)
         /* String Handler */
         if (ch == '"')
         {
-            fputc(ch, output_file);
-
-            while ((ch = fgetc(input_file)) != EOF)
+            if (handle_string(input_file, output_file, options) != 0)
             {
-                fputc(ch, output_file);
-
-                if (ch == '\\')
-                {
-                    ch = fgetc(input_file);
-                    if (ch == EOF)
-                    {
-                        break;
-                    }
-                    fputc(ch, output_file);
-                }
-                else if (ch == '"')
-                {
-                    break;
-                }
+                symbol_table_free(&table);
+                return 1;
             }
 
             continue;

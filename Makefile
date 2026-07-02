@@ -63,6 +63,13 @@ INT_EDGES_OBFUSCATED_BIN = /tmp/int_edges_obfuscated
 INT_EDGES_ORIGINAL_OUT = /tmp/int_edges_original.txt
 INT_EDGES_OBFUSCATED_OUT = /tmp/int_edges_obfuscated.txt
 
+STRINGS_ENCODE_EXAMPLE = tests/fixtures/strings_encode.c
+STRINGS_ENCODE_OBFUSCATED = out/strings_encode_obfuscated.c
+STRINGS_ENCODE_ORIGINAL_BIN = /tmp/strings_encode_original
+STRINGS_ENCODE_OBFUSCATED_BIN = /tmp/strings_encode_obfuscated
+STRINGS_ENCODE_ORIGINAL_OUT = /tmp/strings_encode_original.txt
+STRINGS_ENCODE_OBFUSCATED_OUT = /tmp/strings_encode_obfuscated.txt
+
 all: $(TARGET)
 
 $(TARGET): $(SRC)
@@ -133,19 +140,31 @@ test: $(TARGET)
 	rm -f "$$WIN_PATH"
 	$(QUIET)echo "  passed"
 
-	$(QUIET)# combined flags test
+	$(QUIET)# all flags test
 
-	$(QUIET)echo "[test] combined short flags"
-	$(QUIET)./$(TARGET) -se $(SAFETY_EXAMPLE) > /tmp/smudgec_short_flags.txt
-	$(QUIET)grep -q "wrote: out/scanner_safety_obfuscated.c" /tmp/smudgec_short_flags.txt
-	$(QUIET)! grep -q "visible_name inside a line comment" $(SAFETY_OBFUSCATED)
-	$(QUIET)grep -q "visible_name inside a string" $(SAFETY_OBFUSCATED)
+	$(QUIET)echo "[test] all short flag"
+	$(QUIET)./$(TARGET) -a $(EXAMPLE) > /tmp/smudgec_all_short.txt
+	$(QUIET)$(CC) $(CFLAGS) $(OBFUSCATED) -o /tmp/smudgec_all_short_bin
+	$(QUIET)/tmp/smudgec_all_short_bin > /tmp/smudgec_all_short_out.txt
+	$(QUIET)diff $(ORIGINAL_OUT) /tmp/smudgec_all_short_out.txt
+	$(QUIET)grep -Fq "\\x" $(OBFUSCATED)
+	$(QUIET)grep -Fq "^" $(OBFUSCATED)
+	$(QUIET)echo "  passed"
+	$(QUIET)echo "[test] all long flag"
+	$(QUIET)./$(TARGET) --all $(EXAMPLE) > /tmp/smudgec_all_long.txt
+	$(QUIET)$(CC) $(CFLAGS) $(OBFUSCATED) -o /tmp/smudgec_all_long_bin
+	$(QUIET)/tmp/smudgec_all_long_bin > /tmp/smudgec_all_long_out.txt
+	$(QUIET)diff $(ORIGINAL_OUT) /tmp/smudgec_all_long_out.txt
+	$(QUIET)grep -Fq "\\x" $(OBFUSCATED)
+	$(QUIET)grep -Fq "^" $(OBFUSCATED)
 	$(QUIET)echo "  passed"
 	$(QUIET)echo "[test] combined long flags"
-	$(QUIET)./$(TARGET) --strip-comments --encode-ints $(SAFETY_EXAMPLE) > /tmp/smudgec_long_flags.txt
-	$(QUIET)grep -q "wrote: out/scanner_safety_obfuscated.c" /tmp/smudgec_long_flags.txt
-	$(QUIET)! grep -q "visible_name inside a block comment" $(SAFETY_OBFUSCATED)
-	$(QUIET)grep -q "visible_name inside a string" $(SAFETY_OBFUSCATED)
+	$(QUIET)./$(TARGET) --strip-comments --encode-ints --encode-strings $(EXAMPLE) > /tmp/smudgec_long_flags.txt
+	$(QUIET)$(CC) $(CFLAGS) $(OBFUSCATED) -o /tmp/smudgec_long_flags_bin
+	$(QUIET)/tmp/smudgec_long_flags_bin > /tmp/smudgec_long_flags_out.txt
+	$(QUIET)diff $(ORIGINAL_OUT) /tmp/smudgec_long_flags_out.txt
+	$(QUIET)grep -Fq "\\x" $(OBFUSCATED)
+	$(QUIET)grep -Fq "^" $(OBFUSCATED)
 	$(QUIET)echo "  passed"
 
 	$(QUIET)# unknown option test
@@ -166,6 +185,7 @@ test: $(TARGET)
 	$(QUIET)./$(TARGET) -h > /tmp/smudgec_help_short.txt
 	$(QUIET)grep -q "usage: smudgec" /tmp/smudgec_help_long.txt
 	$(QUIET)grep -q "usage: smudgec" /tmp/smudgec_help_short.txt
+	$(QUIET)grep -q -- "--all" /tmp/smudgec_help_long.txt
 	$(QUIET)grep -q -- "--strip-comments" /tmp/smudgec_help_long.txt
 	$(QUIET)grep -q -- "--encode-ints" /tmp/smudgec_help_short.txt
 	$(QUIET)echo "  passed"
@@ -246,7 +266,7 @@ test: $(TARGET)
 	$(QUIET)echo "[test] ints.c --encode-ints"
 	$(QUIET)$(CC) $(CFLAGS) $(INTS_EXAMPLE) -o $(INTS_ORIGINAL_BIN)
 	$(QUIET)$(INTS_ORIGINAL_BIN) > $(INTS_ORIGINAL_OUT)
-	$(QUIET)./$(TARGET) -e $(INTS_EXAMPLE) > /tmp/smudgec_ints_tool.txt
+	$(QUIET)./$(TARGET) --encode-ints $(INTS_EXAMPLE) > /tmp/smudgec_ints_tool.txt
 	$(QUIET)$(CC) $(CFLAGS) $(INTS_OBFUSCATED) -o $(INTS_OBFUSCATED_BIN)
 	$(QUIET)$(INTS_OBFUSCATED_BIN) > $(INTS_OBFUSCATED_OUT)
 	$(QUIET)diff $(INTS_ORIGINAL_OUT) $(INTS_OBFUSCATED_OUT)
@@ -261,7 +281,7 @@ test: $(TARGET)
 	$(QUIET)echo "[test] int_edges.c --encode-ints"
 	$(QUIET)$(CC) $(CFLAGS) $(INT_EDGES_EXAMPLE) -o $(INT_EDGES_ORIGINAL_BIN)
 	$(QUIET)$(INT_EDGES_ORIGINAL_BIN) > $(INT_EDGES_ORIGINAL_OUT)
-	$(QUIET)./$(TARGET) -e $(INT_EDGES_EXAMPLE) > /tmp/smudgec_int_edges_tool.txt
+	$(QUIET)./$(TARGET) --encode-ints $(INT_EDGES_EXAMPLE) > /tmp/smudgec_int_edges_tool.txt
 	$(QUIET)$(CC) $(CFLAGS) $(INT_EDGES_OBFUSCATED) -o $(INT_EDGES_OBFUSCATED_BIN)
 	$(QUIET)$(INT_EDGES_OBFUSCATED_BIN) > $(INT_EDGES_OBFUSCATED_OUT)
 	$(QUIET)diff $(INT_EDGES_ORIGINAL_OUT) $(INT_EDGES_OBFUSCATED_OUT)
@@ -269,6 +289,21 @@ test: $(TARGET)
 	$(QUIET)grep -q "3.14" $(INT_EDGES_OBFUSCATED)
 	$(QUIET)grep -q "((79 ^ 71))" $(INT_EDGES_OBFUSCATED)
 	$(QUIET)grep -q "return 0;" $(INT_EDGES_OBFUSCATED)
+	$(QUIET)echo "  passed"
+
+	$(QUIET) # encoded strings test
+
+	$(QUIET)echo "[test] strings_encode.c --encode-strings"
+	$(QUIET)$(CC) $(CFLAGS) $(STRINGS_ENCODE_EXAMPLE) -o $(STRINGS_ENCODE_ORIGINAL_BIN)
+	$(QUIET)$(STRINGS_ENCODE_ORIGINAL_BIN) > $(STRINGS_ENCODE_ORIGINAL_OUT)
+	$(QUIET)./$(TARGET) --encode-strings $(STRINGS_ENCODE_EXAMPLE) > /tmp/smudgec_strings_encode_tool.txt
+	$(QUIET)$(CC) $(CFLAGS) $(STRINGS_ENCODE_OBFUSCATED) -o $(STRINGS_ENCODE_OBFUSCATED_BIN)
+	$(QUIET)$(STRINGS_ENCODE_OBFUSCATED_BIN) > $(STRINGS_ENCODE_OBFUSCATED_OUT)
+	$(QUIET)diff $(STRINGS_ENCODE_ORIGINAL_OUT) $(STRINGS_ENCODE_OBFUSCATED_OUT)
+	$(QUIET)grep -Fq "\\x68\\x65\\x6C\\x6C\\x6F" $(STRINGS_ENCODE_OBFUSCATED)
+	$(QUIET)grep -Fq "\\\"" $(STRINGS_ENCODE_OBFUSCATED)
+	$(QUIET)grep -Fq "\\\\" $(STRINGS_ENCODE_OBFUSCATED)
+	$(QUIET)grep -Fq "\\n" $(STRINGS_ENCODE_OBFUSCATED)
 	$(QUIET)echo "  passed"
 
 	$(QUIET)echo "[ok] all tests passed"
