@@ -5,6 +5,11 @@
 #include <string.h>
 #include <sys/stat.h>
 
+#ifdef _WIN32
+#include <direct.h>   /* _mkdir on Windows */
+#endif
+
+
 
 
 int validate_input_path(const char *input_path)
@@ -47,13 +52,18 @@ int ensure_output_directory(void)
         return 1;
     }
 
-    if (mkdir("out", 0755) != 0)
-    {
-        perror("smudgec");
-        return 1;
-    }
+    #ifdef _WIN32
+        if (_mkdir("out") != 0)
+    #else
+        if (mkdir("out", 0755) != 0)
+    #endif
+        {
+            perror("smudgec");
+            return 1;
+        }
 
     return 0;
+
 }
 
 int build_output_path(const char *input_path, char *output_path, int output_path_size)
