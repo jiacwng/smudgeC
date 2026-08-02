@@ -3,6 +3,9 @@
 
 #include <stdio.h>
 
+#define SCANNER_OK 0
+#define SCANNER_ERROR 1
+
 typedef struct
 {
     int strip_comments;

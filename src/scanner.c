@@ -134,7 +134,7 @@ static int handle_number(
     char* number = read_number(input_file, first_ch);
     if (number == NULL)
     {
-        return 1;
+        return SCANNER_ERROR;
     }
 
     int next = fgetc(input_file);
@@ -156,7 +156,7 @@ static int handle_number(
         }
 
         free(number);
-        return 0;
+        return SCANNER_OK;
     }
 
     if (next == '.')
@@ -176,7 +176,7 @@ static int handle_number(
         }
 
         free(number);
-        return 0;
+        return SCANNER_OK;
     }
 
     if (next != EOF)
@@ -196,7 +196,7 @@ static int handle_number(
     }
 
     free(number);
-    return 0;
+    return SCANNER_OK;
 }
 
 
@@ -244,7 +244,7 @@ static int handle_string(
         }
     }
 
-    return 0;
+    return SCANNER_OK;
 }
 
 static int handle_char_literal(FILE *input_file, FILE *output_file)
@@ -273,7 +273,7 @@ static int handle_char_literal(FILE *input_file, FILE *output_file)
         }
     }
 
-    return 0;
+    return SCANNER_OK;
 }
 
 static int handle_comment(
@@ -320,7 +320,7 @@ static int handle_comment(
 
         *at_line_start = 1;
         *handled_comment = 1;
-        return 0;
+        return SCANNER_OK;
     }
 
     if (next == '*')
@@ -360,7 +360,7 @@ static int handle_comment(
         }
 
         *handled_comment = 1;
-        return 0;
+        return SCANNER_OK;
     }
 
     if (next != EOF)
@@ -368,7 +368,7 @@ static int handle_comment(
         ungetc(next, input_file);
     }
 
-    return 0;
+    return SCANNER_OK;
 }
 
 static int handle_preprocessor(FILE *input_file, FILE *output_file)
@@ -387,7 +387,7 @@ static int handle_preprocessor(FILE *input_file, FILE *output_file)
         }
     }
 
-    return 0;
+    return SCANNER_OK;
 }
 
 static int handle_identifier(
@@ -400,7 +400,7 @@ static int handle_identifier(
     char *identifier = read_identifier(input_file, first_ch);
     if(identifier == NULL)
     {
-        return 1;
+        return SCANNER_ERROR;
     }
     
     if (is_keyword(identifier) || is_protected_identifier(identifier))
@@ -413,12 +413,12 @@ static int handle_identifier(
         if (obfuscated_name == NULL)
         {
             free(identifier);
-            return 1;
+            return SCANNER_ERROR;
         }
         fputs(obfuscated_name, output_file);
     }
     free(identifier);
-    return 0;
+    return SCANNER_OK;
 }
 
 
@@ -438,10 +438,10 @@ int scan_file(FILE *input_file, FILE *output_file, ScannerOptions options)
         
         if (at_line_start && ch == '#')
         {
-            if (handle_preprocessor(input_file, output_file) != 0)
+            if (handle_preprocessor(input_file, output_file) != SCANNER_OK)
             {
                 symbol_table_free(&table);
-                return 1;
+                return SCANNER_ERROR;
             }
 
             at_line_start = 1;
@@ -452,10 +452,10 @@ int scan_file(FILE *input_file, FILE *output_file, ScannerOptions options)
         /* String Handler */
         if (ch == '"')
         {
-            if (handle_string(input_file, output_file, options) != 0)
+            if (handle_string(input_file, output_file, options) != SCANNER_OK)
             {
                 symbol_table_free(&table);
-                return 1;
+                return SCANNER_ERROR;
             }
 
             continue;
@@ -465,10 +465,10 @@ int scan_file(FILE *input_file, FILE *output_file, ScannerOptions options)
         /* character-literal handler */
         if (ch == '\'')
         {
-            if (handle_char_literal(input_file, output_file) != 0)
+            if (handle_char_literal(input_file, output_file) != SCANNER_OK)
             {
                 symbol_table_free(&table);
-                return 1;
+                return SCANNER_ERROR;
             }
 
             continue;
@@ -480,10 +480,10 @@ int scan_file(FILE *input_file, FILE *output_file, ScannerOptions options)
         {
             int handled_comment;
 
-            if (handle_comment(input_file, output_file, options, &handled_comment, &at_line_start) != 0)
+            if (handle_comment(input_file, output_file, options, &handled_comment, &at_line_start) != SCANNER_OK)
             {
                 symbol_table_free(&table);
-                return 1;
+                return SCANNER_ERROR;
             }
 
 
@@ -499,10 +499,10 @@ int scan_file(FILE *input_file, FILE *output_file, ScannerOptions options)
         /* Number handler */ 
         if (isdigit(ch))
         {
-            if (handle_number(input_file, output_file, ch, options) != 0)
+            if (handle_number(input_file, output_file, ch, options) != SCANNER_OK)
             {
                 symbol_table_free(&table);
-                return 1;
+                return SCANNER_ERROR;
             }
 
             continue;
@@ -514,10 +514,10 @@ int scan_file(FILE *input_file, FILE *output_file, ScannerOptions options)
 
         if(isalpha(ch) || ch == '_')
         {
-            if (handle_identifier(input_file, output_file, ch, &table) != 0)
+            if (handle_identifier(input_file, output_file, ch, &table) != SCANNER_OK)
             {
                 symbol_table_free(&table);
-                return 1;
+                return SCANNER_ERROR;
             }
 
             continue;
@@ -537,5 +537,5 @@ int scan_file(FILE *input_file, FILE *output_file, ScannerOptions options)
         }
     }   
     symbol_table_free(&table);
-    return 0;
+    return SCANNER_OK;
 }

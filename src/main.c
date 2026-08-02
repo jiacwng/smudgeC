@@ -66,7 +66,7 @@ int main(int argc, char **argv)
     /* ----------------------------------------------------------------- */
 
 
-    if (scan_file(input_file,output_file,options) != 0)
+    if (scan_file(input_file, output_file, options) != SCANNER_OK)
     {
         printf("smudgeC: failed to scan input\n");
         fclose(input_file);
