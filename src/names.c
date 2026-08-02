@@ -299,6 +299,14 @@ void symbol_table_free(SymbolTable *table)
     symbol_table_init(table);
 }
 
+void symbol_table_write_map(const SymbolTable *table, FILE *map_file)
+{
+    for (int i = 0; i < table->count; i++)
+    {
+        fprintf(map_file, "%s -> %s\n", table->symbols[i].original, table->symbols[i].obfuscated);
+    }
+}
+
 
 char *get_obfuscated_name(SymbolTable *table, char *identifier)
 {

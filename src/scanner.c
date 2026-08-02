@@ -2,6 +2,7 @@
 #include "names.h"
 
 #include <ctype.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -99,17 +100,13 @@ static char *read_number(FILE *input_file, int first_ch)
     return buffer;
 }
 
-static int choose_integer_key(int number)
+static uint64_t splitmix64(uint64_t *state)
 {
-    int key = (number * 31) % 97;
-    if (key < 0)
-    {
-        key = -key;
-    }
-    return key + 17;
+    uint64_t z = (*state += 0x9E3779B97F4A7C15ULL);
+    z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9ULL;
+    z = (z ^ (z >> 27)) * 0x94D049BB133111EBULL;
+    return z ^ (z >> 31);
 }
-
-
 
 static void write_encoded_integer(FILE *output_file, const char *number_text)
 {
@@ -120,9 +117,27 @@ static void write_encoded_integer(FILE *output_file, const char *number_text)
         return;
     }
 
-    int key = choose_integer_key(number);
-    int encoded = number ^ key;
-    fprintf(output_file, "((%d ^ %d))", encoded, key);
+    /* seed from the value so a given literal always encodes the same way */
+    uint64_t state = (uint64_t)(unsigned int)number + 0x9E3779B97F4A7C15ULL;
+    int form = (int)(splitmix64(&state) % 4);
+    int k1 = (int)(splitmix64(&state) % 250) + 1;
+    int k2 = (int)(splitmix64(&state) % 250) + 1;
+
+    switch (form)
+    {
+        case 0:
+            fprintf(output_file, "((%d ^ %d))", number ^ k1, k1);
+            break;
+        case 1:
+            fprintf(output_file, "(((%d ^ %d) ^ %d))", (number ^ k1) ^ k2, k1, k2);
+            break;
+        case 2:
+            fprintf(output_file, "((%d + %d))", number - k1, k1);
+            break;
+        default:
+            fprintf(output_file, "(((%d + %d) + %d))", number - k1 - k2, k1, k2);
+            break;
+    }
 }
 
 static int handle_number(
@@ -594,7 +609,7 @@ static int handle_identifier(
 
 
 
-int scan_file(FILE *input_file, FILE *output_file, ScannerOptions options, NameSet *protected, const char *input_dir)
+int scan_file(FILE *input_file, FILE *output_file, ScannerOptions options, NameSet *protected, const char *input_dir, FILE *map_file)
 {
     SymbolTable table;
     symbol_table_init(&table);
@@ -715,6 +730,11 @@ int scan_file(FILE *input_file, FILE *output_file, ScannerOptions options, NameS
             at_line_start = 0;
         }
     }   
+    if (map_file != NULL)
+    {
+        symbol_table_write_map(&table, map_file);
+    }
+
     symbol_table_free(&table);
     name_set_free(&macros);
     return SCANNER_OK;

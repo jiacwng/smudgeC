@@ -1,6 +1,8 @@
 #ifndef NAMES_H
 #define NAMES_H
 
+#include <stdio.h>
+
 typedef struct
 {
     char *original;
@@ -30,6 +32,7 @@ int  collect_header_identifiers(const char *path, NameSet *set);  /* 1 on succes
 
 void symbol_table_init(SymbolTable *table);
 void symbol_table_free(SymbolTable *table);
+void symbol_table_write_map(const SymbolTable *table, FILE *map_file);
 int is_keyword(char *word);
 char *get_obfuscated_name(SymbolTable *table, char *identifier);
 
