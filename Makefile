@@ -177,7 +177,7 @@ test: $(TARGET)
 	$(QUIET)/tmp/smudgec_all_short_bin > /tmp/smudgec_all_short_out.txt
 	$(QUIET)diff $(ORIGINAL_OUT) /tmp/smudgec_all_short_out.txt
 	$(QUIET)grep -Fq "\\x" $(OBFUSCATED)
-	$(QUIET)grep -Fq "^" $(OBFUSCATED)
+	$(QUIET)grep -qE '\(\(-?[0-9]+ [+^] [0-9]+' $(OBFUSCATED)
 	$(QUIET)echo "  passed"
 	$(QUIET)echo "[test] all long flag"
 	$(QUIET)./$(TARGET) --all $(EXAMPLE) > /tmp/smudgec_all_long.txt
@@ -185,7 +185,7 @@ test: $(TARGET)
 	$(QUIET)/tmp/smudgec_all_long_bin > /tmp/smudgec_all_long_out.txt
 	$(QUIET)diff $(ORIGINAL_OUT) /tmp/smudgec_all_long_out.txt
 	$(QUIET)grep -Fq "\\x" $(OBFUSCATED)
-	$(QUIET)grep -Fq "^" $(OBFUSCATED)
+	$(QUIET)grep -qE '\(\(-?[0-9]+ [+^] [0-9]+' $(OBFUSCATED)
 	$(QUIET)echo "  passed"
 	$(QUIET)echo "[test] combined long flags"
 	$(QUIET)./$(TARGET) --strip-comments --encode-ints --encode-strings $(EXAMPLE) > /tmp/smudgec_long_flags.txt
@@ -193,7 +193,7 @@ test: $(TARGET)
 	$(QUIET)/tmp/smudgec_long_flags_bin > /tmp/smudgec_long_flags_out.txt
 	$(QUIET)diff $(ORIGINAL_OUT) /tmp/smudgec_long_flags_out.txt
 	$(QUIET)grep -Fq "\\x" $(OBFUSCATED)
-	$(QUIET)grep -Fq "^" $(OBFUSCATED)
+	$(QUIET)grep -qE '\(\(-?[0-9]+ [+^] [0-9]+' $(OBFUSCATED)
 	$(QUIET)echo "  passed"
 
 	$(QUIET)# unknown option test
