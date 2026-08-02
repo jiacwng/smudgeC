@@ -1,3 +1,5 @@
+#define _POSIX_C_SOURCE 200809L
+
 #include "path_utils.h"
 
 #include <errno.h>
@@ -7,6 +9,9 @@
 
 #ifdef _WIN32
 #include <direct.h>   /* _mkdir on Windows */
+#include <windows.h>  /* GetModuleFileNameA */
+#else
+#include <unistd.h>   /* readlink */
 #endif
 
 
@@ -141,4 +146,27 @@ void get_input_directory(const char *input_path, char *dir, int dir_size)
 
     memcpy(dir, input_path, length);
     dir[length] = '\0';
+}
+
+int get_executable_dir(char *dir, int dir_size)
+{
+    char path[1024];
+
+#ifdef _WIN32
+    DWORD length = GetModuleFileNameA(NULL, path, sizeof(path));
+    if (length == 0 || length >= sizeof(path))
+    {
+        return 0;
+    }
+#else
+    ssize_t length = readlink("/proc/self/exe", path, sizeof(path) - 1);
+    if (length <= 0 || length >= (ssize_t)sizeof(path))
+    {
+        return 0;
+    }
+    path[length] = '\0';
+#endif
+
+    get_input_directory(path, dir, dir_size);
+    return 1;
 }
