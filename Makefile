@@ -82,6 +82,13 @@ MACROS_OBFUSCATED_BIN = /tmp/macros_obfuscated
 MACROS_ORIGINAL_OUT = /tmp/macros_original.txt
 MACROS_OBFUSCATED_OUT = /tmp/macros_obfuscated.txt
 
+LIBC_EXAMPLE = tests/fixtures/libc_calls.c
+LIBC_OBFUSCATED = out/libc_calls_obfuscated.c
+LIBC_ORIGINAL_BIN = /tmp/libc_calls_original
+LIBC_OBFUSCATED_BIN = /tmp/libc_calls_obfuscated
+LIBC_ORIGINAL_OUT = /tmp/libc_calls_original.txt
+LIBC_OBFUSCATED_OUT = /tmp/libc_calls_obfuscated.txt
+
 all: $(TARGET)
 
 $(TARGET): $(SRC)
@@ -331,6 +338,19 @@ test: $(TARGET)
 	$(QUIET)grep -q "= SQUARE" $(MACROS_OBFUSCATED)
 	$(QUIET)grep -qF "((a) + (b))" $(MACROS_OBFUSCATED)
 	$(QUIET)grep -q _sm $(MACROS_OBFUSCATED)
+	$(QUIET)echo "  passed"
+
+	$(QUIET) # protected library name test
+
+	$(QUIET)echo "[test] libc_calls.c"
+	$(QUIET)$(CC) $(CFLAGS) $(LIBC_EXAMPLE) -o $(LIBC_ORIGINAL_BIN)
+	$(QUIET)$(LIBC_ORIGINAL_BIN) > $(LIBC_ORIGINAL_OUT)
+	$(QUIET)./$(TARGET) $(LIBC_EXAMPLE) > /tmp/smudgec_libc_tool.txt
+	$(QUIET)$(CC) $(CFLAGS) $(LIBC_OBFUSCATED) -o $(LIBC_OBFUSCATED_BIN)
+	$(QUIET)$(LIBC_OBFUSCATED_BIN) > $(LIBC_OBFUSCATED_OUT)
+	$(QUIET)diff $(LIBC_ORIGINAL_OUT) $(LIBC_OBFUSCATED_OUT)
+	$(QUIET)grep -q "qsort(" $(LIBC_OBFUSCATED)
+	$(QUIET)grep -q _sm $(LIBC_OBFUSCATED)
 	$(QUIET)echo "  passed"
 
 	$(QUIET)echo "[ok] all tests passed"

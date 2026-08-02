@@ -492,7 +492,8 @@ static int handle_identifier(
     FILE *output_file,
     int first_ch,
     SymbolTable *table,
-    NameSet *macros
+    NameSet *macros,
+    NameSet *protected
 )
 {
     char *identifier = read_identifier(input_file, first_ch);
@@ -501,7 +502,7 @@ static int handle_identifier(
         return SCANNER_ERROR;
     }
 
-    if (is_keyword(identifier) || is_protected_identifier(identifier) || name_set_contains(macros, identifier))
+    if (is_keyword(identifier) || name_set_contains(protected, identifier) || name_set_contains(macros, identifier))
     {
         fputs(identifier, output_file);
     }
@@ -522,7 +523,7 @@ static int handle_identifier(
 
 
 
-int scan_file(FILE *input_file, FILE *output_file, ScannerOptions options)
+int scan_file(FILE *input_file, FILE *output_file, ScannerOptions options, NameSet *protected)
 {
     SymbolTable table;
     symbol_table_init(&table);
@@ -620,7 +621,7 @@ int scan_file(FILE *input_file, FILE *output_file, ScannerOptions options)
 
         if(isalpha(ch) || ch == '_')
         {
-            if (handle_identifier(input_file, output_file, ch, &table, &macros) != SCANNER_OK)
+            if (handle_identifier(input_file, output_file, ch, &table, &macros, protected) != SCANNER_OK)
             {
                 symbol_table_free(&table);
                 name_set_free(&macros);

@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <ctype.h>
 
 /* keyword identification to separate them from identifiers */
 
@@ -52,100 +53,6 @@ int is_keyword(char *word)
     for (int i = 0; i < count; i++)
     {
         if (strcmp(word, keywords[i]) == 0)
-        {
-            return 1;
-        }
-    }
-
-    return 0;
-}
-
-/* separate protected identifier from usual identifier */
-
-int is_protected_identifier(char *word)
-{
-    static const char *protected_names[] = {
-    /* entry point / common macros */
-    "main",
-    "NULL",
-    "EOF",
-
-    /* standard types */
-    "FILE",
-    "size_t",
-
-    /* stdio.h */
-    "printf",
-    "fprintf",
-    "sprintf",
-    "snprintf",
-    "scanf",
-    "fscanf",
-    "sscanf",
-    "puts",
-    "fputs",
-    "putchar",
-    "getchar",
-    "fgets",
-    "fgetc",
-    "fputc",
-    "fopen",
-    "fclose",
-    "fread",
-    "fwrite",
-    "fseek",
-    "ftell",
-    "rewind",
-    "stdin",
-    "stdout",
-    "stderr",
-
-    /* stdlib.h */
-    "malloc",
-    "calloc",
-    "realloc",
-    "free",
-    "exit",
-    "abort",
-    "atoi",
-    "atol",
-    "strtol",
-    "strtoul",
-    "rand",
-    "srand",
-
-    /* string.h */
-    "strlen",
-    "strcmp",
-    "strncmp",
-    "strcpy",
-    "strncpy",
-    "strcat",
-    "strncat",
-    "strchr",
-    "strrchr",
-    "strstr",
-    "memcpy",
-    "memmove",
-    "memset",
-    "memcmp",
-
-    /* ctype.h */
-    "isalpha",
-    "isdigit",
-    "isalnum",
-    "isspace",
-    "isupper",
-    "islower",
-    "toupper",
-    "tolower"
-    };
-
-    int count = sizeof(protected_names) / sizeof(protected_names[0]);
-
-    for (int i = 0; i < count; i++)
-    {
-        if (strcmp(word, protected_names[i]) == 0)
         {
             return 1;
         }
@@ -222,6 +129,52 @@ int name_set_add(NameSet *set, const char *name)
     set->names[set->count] = copy;
     set->count += 1;
 
+    return 1;
+}
+
+int load_protected_names(const char *path, NameSet *set)
+{
+    FILE *file = fopen(path, "r");
+    if (file == NULL)
+    {
+        return 0;
+    }
+
+    char line[128];
+    while (fgets(line, sizeof(line), file) != NULL)
+    {
+        int i = 0;
+        while (line[i] == ' ' || line[i] == '\t')
+        {
+            i++;
+        }
+
+        if (line[i] == '#' || line[i] == '\n' || line[i] == '\r' || line[i] == '\0')
+        {
+            continue;
+        }
+
+        int start = i;
+        while (isalnum((unsigned char)line[i]) || line[i] == '_')
+        {
+            i++;
+        }
+
+        if (i == start)
+        {
+            continue;
+        }
+
+        line[i] = '\0';
+
+        if (!name_set_add(set, line + start))
+        {
+            fclose(file);
+            return 0;
+        }
+    }
+
+    fclose(file);
     return 1;
 }
 
