@@ -371,15 +371,106 @@ static int handle_comment(
     return SCANNER_OK;
 }
 
-static int handle_preprocessor(FILE *input_file, FILE *output_file)
+static void record_macro_name(const char *line, NameSet *macros)
+{
+    int i = 0;
+
+    while (line[i] == ' ' || line[i] == '\t')
+    {
+        i++;
+    }
+
+    const char *keyword = "define";
+    int k = 0;
+    while (keyword[k] != '\0' && line[i] == keyword[k])
+    {
+        i++;
+        k++;
+    }
+
+    if (keyword[k] != '\0')
+    {
+        return;
+    }
+
+    if (line[i] != ' ' && line[i] != '\t')
+    {
+        return;
+    }
+
+    while (line[i] == ' ' || line[i] == '\t')
+    {
+        i++;
+    }
+
+    int start = i;
+    while (isalnum((unsigned char)line[i]) || line[i] == '_')
+    {
+        i++;
+    }
+
+    if (i == start)
+    {
+        return;
+    }
+
+    int name_length = i - start;
+    char *name = malloc(name_length + 1);
+    if (name == NULL)
+    {
+        return;
+    }
+
+    memcpy(name, line + start, name_length);
+    name[name_length] = '\0';
+
+    name_set_add(macros, name);
+    free(name);
+}
+
+static int handle_preprocessor(FILE *input_file, FILE *output_file, NameSet *macros)
 {
     int ch;
+    int buffer_size = 32;
+    int length = 0;
+    char *buffer = malloc(buffer_size);
+
+    if (buffer == NULL)
+    {
+        return SCANNER_ERROR;
+    }
 
     fputc('#', output_file);
 
     while ((ch = fgetc(input_file)) != EOF)
     {
-        fputc(ch, output_file);
+        if (length >= buffer_size - 2)
+        {
+            buffer_size = buffer_size * 2;
+            char *temp = realloc(buffer, buffer_size);
+            if (temp == NULL)
+            {
+                free(buffer);
+                return SCANNER_ERROR;
+            }
+            buffer = temp;
+        }
+
+        buffer[length] = ch;
+        length += 1;
+
+        if (ch == '\\')
+        {
+            int next = fgetc(input_file);
+            if (next == EOF)
+            {
+                break;
+            }
+
+            buffer[length] = next;
+            length += 1;
+            continue;
+        }
 
         if (ch == '\n')
         {
@@ -387,6 +478,12 @@ static int handle_preprocessor(FILE *input_file, FILE *output_file)
         }
     }
 
+    buffer[length] = '\0';
+
+    fputs(buffer, output_file);
+    record_macro_name(buffer, macros);
+
+    free(buffer);
     return SCANNER_OK;
 }
 
@@ -394,7 +491,8 @@ static int handle_identifier(
     FILE *input_file,
     FILE *output_file,
     int first_ch,
-    SymbolTable *table
+    SymbolTable *table,
+    NameSet *macros
 )
 {
     char *identifier = read_identifier(input_file, first_ch);
@@ -402,8 +500,8 @@ static int handle_identifier(
     {
         return SCANNER_ERROR;
     }
-    
-    if (is_keyword(identifier) || is_protected_identifier(identifier))
+
+    if (is_keyword(identifier) || is_protected_identifier(identifier) || name_set_contains(macros, identifier))
     {
         fputs(identifier, output_file);
     }
@@ -429,6 +527,9 @@ int scan_file(FILE *input_file, FILE *output_file, ScannerOptions options)
     SymbolTable table;
     symbol_table_init(&table);
 
+    NameSet macros;
+    name_set_init(&macros);
+
     int ch;
     int at_line_start = 1;
 
@@ -438,9 +539,10 @@ int scan_file(FILE *input_file, FILE *output_file, ScannerOptions options)
         
         if (at_line_start && ch == '#')
         {
-            if (handle_preprocessor(input_file, output_file) != SCANNER_OK)
+            if (handle_preprocessor(input_file, output_file, &macros) != SCANNER_OK)
             {
                 symbol_table_free(&table);
+                name_set_free(&macros);
                 return SCANNER_ERROR;
             }
 
@@ -455,6 +557,7 @@ int scan_file(FILE *input_file, FILE *output_file, ScannerOptions options)
             if (handle_string(input_file, output_file, options) != SCANNER_OK)
             {
                 symbol_table_free(&table);
+                name_set_free(&macros);
                 return SCANNER_ERROR;
             }
 
@@ -468,6 +571,7 @@ int scan_file(FILE *input_file, FILE *output_file, ScannerOptions options)
             if (handle_char_literal(input_file, output_file) != SCANNER_OK)
             {
                 symbol_table_free(&table);
+                name_set_free(&macros);
                 return SCANNER_ERROR;
             }
 
@@ -483,6 +587,7 @@ int scan_file(FILE *input_file, FILE *output_file, ScannerOptions options)
             if (handle_comment(input_file, output_file, options, &handled_comment, &at_line_start) != SCANNER_OK)
             {
                 symbol_table_free(&table);
+                name_set_free(&macros);
                 return SCANNER_ERROR;
             }
 
@@ -502,6 +607,7 @@ int scan_file(FILE *input_file, FILE *output_file, ScannerOptions options)
             if (handle_number(input_file, output_file, ch, options) != SCANNER_OK)
             {
                 symbol_table_free(&table);
+                name_set_free(&macros);
                 return SCANNER_ERROR;
             }
 
@@ -514,9 +620,10 @@ int scan_file(FILE *input_file, FILE *output_file, ScannerOptions options)
 
         if(isalpha(ch) || ch == '_')
         {
-            if (handle_identifier(input_file, output_file, ch, &table) != SCANNER_OK)
+            if (handle_identifier(input_file, output_file, ch, &table, &macros) != SCANNER_OK)
             {
                 symbol_table_free(&table);
+                name_set_free(&macros);
                 return SCANNER_ERROR;
             }
 
@@ -537,5 +644,6 @@ int scan_file(FILE *input_file, FILE *output_file, ScannerOptions options)
         }
     }   
     symbol_table_free(&table);
+    name_set_free(&macros);
     return SCANNER_OK;
 }

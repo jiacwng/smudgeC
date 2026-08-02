@@ -75,6 +75,13 @@ STRINGS_ENCODE_OBFUSCATED_BIN = /tmp/strings_encode_obfuscated
 STRINGS_ENCODE_ORIGINAL_OUT = /tmp/strings_encode_original.txt
 STRINGS_ENCODE_OBFUSCATED_OUT = /tmp/strings_encode_obfuscated.txt
 
+MACROS_EXAMPLE = tests/fixtures/macros.c
+MACROS_OBFUSCATED = out/macros_obfuscated.c
+MACROS_ORIGINAL_BIN = /tmp/macros_original
+MACROS_OBFUSCATED_BIN = /tmp/macros_obfuscated
+MACROS_ORIGINAL_OUT = /tmp/macros_original.txt
+MACROS_OBFUSCATED_OUT = /tmp/macros_obfuscated.txt
+
 all: $(TARGET)
 
 $(TARGET): $(SRC)
@@ -309,6 +316,21 @@ test: $(TARGET)
 	$(QUIET)grep -Fq "\\\"" $(STRINGS_ENCODE_OBFUSCATED)
 	$(QUIET)grep -Fq "\\\\" $(STRINGS_ENCODE_OBFUSCATED)
 	$(QUIET)grep -Fq "\\n" $(STRINGS_ENCODE_OBFUSCATED)
+	$(QUIET)echo "  passed"
+
+	$(QUIET) # macro preservation test
+
+	$(QUIET)echo "[test] macros.c"
+	$(QUIET)$(CC) $(CFLAGS) $(MACROS_EXAMPLE) -o $(MACROS_ORIGINAL_BIN)
+	$(QUIET)$(MACROS_ORIGINAL_BIN) > $(MACROS_ORIGINAL_OUT)
+	$(QUIET)./$(TARGET) $(MACROS_EXAMPLE) > /tmp/smudgec_macros_tool.txt
+	$(QUIET)$(CC) $(CFLAGS) $(MACROS_OBFUSCATED) -o $(MACROS_OBFUSCATED_BIN)
+	$(QUIET)$(MACROS_OBFUSCATED_BIN) > $(MACROS_OBFUSCATED_OUT)
+	$(QUIET)diff $(MACROS_ORIGINAL_OUT) $(MACROS_OBFUSCATED_OUT)
+	$(QUIET)grep -q "= WIDTH" $(MACROS_OBFUSCATED)
+	$(QUIET)grep -q "= SQUARE" $(MACROS_OBFUSCATED)
+	$(QUIET)grep -qF "((a) + (b))" $(MACROS_OBFUSCATED)
+	$(QUIET)grep -q _sm $(MACROS_OBFUSCATED)
 	$(QUIET)echo "  passed"
 
 	$(QUIET)echo "[ok] all tests passed"
