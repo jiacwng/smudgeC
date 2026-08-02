@@ -41,11 +41,25 @@ static void test_load_protected_names(void)
     name_set_free(&set);
 }
 
+static void test_collect_header_identifiers(void)
+{
+    NameSet set;
+    name_set_init(&set);
+
+    TEST_ASSERT_EQUAL_INT(1, collect_header_identifiers("src/names.h", &set));
+    TEST_ASSERT_EQUAL_INT(1, name_set_contains(&set, "NameSet"));
+    TEST_ASSERT_EQUAL_INT(1, name_set_contains(&set, "name_set_add"));
+    TEST_ASSERT_EQUAL_INT(0, name_set_contains(&set, "int"));
+
+    name_set_free(&set);
+}
+
 int main(void)
 {
     UNITY_BEGIN();
     RUN_TEST(test_keyword_known_and_unknown);
     RUN_TEST(test_name_set_add_contains_and_free);
     RUN_TEST(test_load_protected_names);
+    RUN_TEST(test_collect_header_identifiers);
     return UNITY_END();
 }

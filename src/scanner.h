@@ -18,6 +18,6 @@ typedef struct
 
 void scanner_options_init(ScannerOptions *options);
 
-int scan_file(FILE *input_file, FILE *output_file, ScannerOptions options, NameSet *protected);
+int scan_file(FILE *input_file, FILE *output_file, ScannerOptions options, NameSet *protected, const char *input_dir);
 
 #endif

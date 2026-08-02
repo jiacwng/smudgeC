@@ -178,6 +178,102 @@ int load_protected_names(const char *path, NameSet *set)
     return 1;
 }
 
+int collect_header_identifiers(const char *path, NameSet *set)
+{
+    FILE *file = fopen(path, "r");
+    if (file == NULL)
+    {
+        return 0;
+    }
+
+    int ch;
+    while ((ch = fgetc(file)) != EOF)
+    {
+        if (ch == '/')
+        {
+            int next = fgetc(file);
+            if (next == '/')
+            {
+                while ((ch = fgetc(file)) != EOF && ch != '\n')
+                {
+                }
+                continue;
+            }
+            if (next == '*')
+            {
+                int previous = 0;
+                while ((ch = fgetc(file)) != EOF)
+                {
+                    if (previous == '*' && ch == '/')
+                    {
+                        break;
+                    }
+                    previous = ch;
+                }
+                continue;
+            }
+            if (next != EOF)
+            {
+                ungetc(next, file);
+            }
+            continue;
+        }
+
+        if (ch == '"' || ch == '\'')
+        {
+            int quote = ch;
+            while ((ch = fgetc(file)) != EOF)
+            {
+                if (ch == '\\')
+                {
+                    fgetc(file);
+                    continue;
+                }
+                if (ch == quote)
+                {
+                    break;
+                }
+            }
+            continue;
+        }
+
+        if (isalpha(ch) || ch == '_')
+        {
+            char word[128];
+            int length = 0;
+            word[length] = (char)ch;
+            length += 1;
+
+            while ((ch = fgetc(file)) != EOF && (isalnum(ch) || ch == '_'))
+            {
+                if (length < (int)sizeof(word) - 1)
+                {
+                    word[length] = (char)ch;
+                    length += 1;
+                }
+            }
+            if (ch != EOF)
+            {
+                ungetc(ch, file);
+            }
+            word[length] = '\0';
+
+            if (!is_keyword(word))
+            {
+                if (!name_set_add(set, word))
+                {
+                    fclose(file);
+                    return 0;
+                }
+            }
+            continue;
+        }
+    }
+
+    fclose(file);
+    return 1;
+}
+
 
 
 
