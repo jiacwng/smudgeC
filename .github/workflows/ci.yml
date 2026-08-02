@@ -1,0 +1,47 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# least privilege: this workflow only needs to read the code
+permissions:
+  contents: read
+
+# cancel a superseded run on the same ref instead of queuing another
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      # our own code must be warning-clean; CI treats warnings as errors
+      - name: strict build (warnings are errors)
+        run: gcc -std=c99 -Wall -Wextra -pedantic -Werror -c src/*.c
+
+      # build the tool and run the end-to-end regression pipeline
+      - name: build and end-to-end tests
+        run: make test
+
+      # build with the memory and undefined-behaviour checkers, then run the tool.
+      # -fno-sanitize-recover and halt_on_error make a violation fail the job,
+      # otherwise UBSan only prints and CI stays green on a real bug.
+      - name: sanitizer build and run
+        env:
+          ASAN_OPTIONS: abort_on_error=1:detect_leaks=1
+          UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
+        run: |
+          gcc -std=c99 -Wall -Wextra -pedantic \
+              -fsanitize=address,undefined -fno-sanitize-recover=all -g \
+              src/main.c src/scanner.c src/names.c src/path_utils.c src/cli.c \
+              -o smudgec_san
+          ./smudgec_san examples/hello.c
+          ./smudgec_san --all examples/hello.c

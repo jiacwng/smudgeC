@@ -1,0 +1,9 @@
+version: 2
+updates:
+  # keep the pinned action SHAs in the workflows current
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: ci

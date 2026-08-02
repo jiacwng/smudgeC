@@ -4,4 +4,4 @@ tests/tmp/
 smudgec
 smudgec.exe
 *.o
-*.local.md
+local/
