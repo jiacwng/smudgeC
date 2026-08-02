@@ -308,7 +308,7 @@ void symbol_table_write_map(const SymbolTable *table, FILE *map_file)
 }
 
 
-char *get_obfuscated_name(SymbolTable *table, char *identifier)
+char *get_obfuscated_name(SymbolTable *table, char *identifier, const char *prefix)
 {
     for (int i = 0; i < table->count; i++)
     {
@@ -347,8 +347,8 @@ char *get_obfuscated_name(SymbolTable *table, char *identifier)
     }
     strcpy(original,identifier);
 
-    char temp_name[32];
-    snprintf(temp_name, sizeof(temp_name), "_sm%d", table->count);
+    char temp_name[64];
+    snprintf(temp_name, sizeof(temp_name), "%s%d", prefix, table->count);
     char *obfuscated = malloc(strlen(temp_name) + 1);
     if (obfuscated == NULL)
     {

@@ -415,6 +415,33 @@ test: $(TARGET)
 	$(QUIET)grep -q "SEEN_GLOBAL" $(HIDE_STRINGS_OBFUSCATED)
 	$(QUIET)echo "  passed"
 
+	$(QUIET) # minify and prefix tests
+
+	$(QUIET)echo "[test] --minify"
+	$(QUIET)./$(TARGET) --minify $(EXAMPLE) > /tmp/smudgec_minify.txt
+	$(QUIET)$(CC) $(CFLAGS) $(OBFUSCATED) -o /tmp/smudgec_minify_bin
+	$(QUIET)/tmp/smudgec_minify_bin > /tmp/smudgec_minify_out.txt
+	$(QUIET)diff $(ORIGINAL_OUT) /tmp/smudgec_minify_out.txt
+	$(QUIET)! grep -qE '^    ' $(OBFUSCATED)
+	$(QUIET)echo "  passed"
+
+	$(QUIET)echo "[test] --prefix"
+	$(QUIET)./$(TARGET) --prefix _zz $(EXAMPLE) > /tmp/smudgec_prefix.txt
+	$(QUIET)$(CC) $(CFLAGS) $(OBFUSCATED) -o /tmp/smudgec_prefix_bin
+	$(QUIET)/tmp/smudgec_prefix_bin > /tmp/smudgec_prefix_out.txt
+	$(QUIET)diff $(ORIGINAL_OUT) /tmp/smudgec_prefix_out.txt
+	$(QUIET)grep -q "_zz0" $(OBFUSCATED)
+	$(QUIET)! grep -q "_sm0" $(OBFUSCATED)
+	$(QUIET)echo "  passed"
+
+	$(QUIET)echo "[test] -a --no-strip-comments keeps comments"
+	$(QUIET)./$(TARGET) -a --no-strip-comments $(EXAMPLE) > /tmp/smudgec_noflag.txt
+	$(QUIET)grep -q "comment says" $(OBFUSCATED)
+	$(QUIET)$(CC) $(CFLAGS) $(OBFUSCATED) -o /tmp/smudgec_noflag_bin
+	$(QUIET)/tmp/smudgec_noflag_bin > /tmp/smudgec_noflag_out.txt
+	$(QUIET)diff $(ORIGINAL_OUT) /tmp/smudgec_noflag_out.txt
+	$(QUIET)echo "  passed"
+
 	$(QUIET)echo "[ok] all tests passed"
 
 unit:

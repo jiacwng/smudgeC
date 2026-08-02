@@ -14,8 +14,22 @@ typedef struct
     int encode_ints;
     int encode_strings;
     int hide_strings;
+    int minify;
+    const char *prefix;
     int verify;
 } ScannerOptions;
+
+typedef struct
+{
+    FILE *input;
+    FILE *output;
+    ScannerOptions options;
+    SymbolTable *table;
+    NameSet *macros;
+    NameSet *protected;
+    const char *input_dir;
+    FILE *map_file;
+} ScanContext;
 
 
 void scanner_options_init(ScannerOptions *options);
