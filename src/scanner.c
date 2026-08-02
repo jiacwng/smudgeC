@@ -12,6 +12,7 @@ void scanner_options_init(ScannerOptions *options)
     options->strip_comments = 0;
     options->encode_ints = 0;
     options->encode_strings = 0;
+    options->hide_strings = 0;
     options->verify = 1;
 }
 
@@ -221,12 +222,144 @@ static void write_encoded_string_char(FILE *output_file, int ch)
     fprintf(output_file, "\\x%02X", (unsigned char)ch);
 }
 
+static uint64_t hash_bytes(const unsigned char *bytes, int n)
+{
+    uint64_t h = 0xCBF29CE484222325ULL;
+    for (int i = 0; i < n; i++)
+    {
+        h = (h ^ bytes[i]) * 0x100000001B3ULL;
+    }
+    return h;
+}
+
+/* Replace a string literal with a call that decrypts it at runtime. Escapes
+   we do not recognise (\x, octal, ...) fall back to the original literal. */
+static int transform_string(FILE *input_file, FILE *output_file)
+{
+    int buffer_size = 64;
+    int length = 0;
+    char *raw = malloc(buffer_size);
+    if (raw == NULL)
+    {
+        return SCANNER_ERROR;
+    }
+
+    int ch;
+    while ((ch = fgetc(input_file)) != EOF)
+    {
+        if (length >= buffer_size - 2)
+        {
+            buffer_size = buffer_size * 2;
+            char *temp = realloc(raw, buffer_size);
+            if (temp == NULL)
+            {
+                free(raw);
+                return SCANNER_ERROR;
+            }
+            raw = temp;
+        }
+
+        if (ch == '\\')
+        {
+            int next = fgetc(input_file);
+            if (next == EOF)
+            {
+                break;
+            }
+            raw[length] = (char)ch;
+            raw[length + 1] = (char)next;
+            length += 2;
+            continue;
+        }
+
+        if (ch == '"')
+        {
+            break;
+        }
+
+        raw[length] = (char)ch;
+        length += 1;
+    }
+    raw[length] = '\0';
+
+    unsigned char *bytes = malloc(length + 1);
+    if (bytes == NULL)
+    {
+        free(raw);
+        return SCANNER_ERROR;
+    }
+
+    int n = 0;
+    int i = 0;
+    int ok = 1;
+    while (i < length && ok)
+    {
+        if (raw[i] == '\\')
+        {
+            i++;
+            switch (raw[i])
+            {
+                case 'n':  bytes[n] = '\n'; break;
+                case 't':  bytes[n] = '\t'; break;
+                case 'r':  bytes[n] = '\r'; break;
+                case '\\': bytes[n] = '\\'; break;
+                case '"':  bytes[n] = '"';  break;
+                case '\'': bytes[n] = '\''; break;
+                case 'a':  bytes[n] = '\a'; break;
+                case 'b':  bytes[n] = '\b'; break;
+                case 'f':  bytes[n] = '\f'; break;
+                case 'v':  bytes[n] = '\v'; break;
+                default:   ok = 0; break;
+            }
+            n += ok;
+            i++;
+        }
+        else
+        {
+            bytes[n] = (unsigned char)raw[i];
+            n += 1;
+            i += 1;
+        }
+    }
+
+    if (!ok)
+    {
+        fputc('"', output_file);
+        fputs(raw, output_file);
+        fputc('"', output_file);
+        free(bytes);
+        free(raw);
+        return SCANNER_OK;
+    }
+
+    uint64_t seed = hash_bytes(bytes, n);
+    int key = (int)(splitmix64(&seed) % 250) + 1;
+
+    fputs("_sm_dec((char[]){", output_file);
+    for (int j = 0; j <= n; j++)
+    {
+        int b = (j < n) ? bytes[j] : 0;
+        fprintf(output_file, "%s(char)0x%02X", (j > 0 ? "," : ""), (b ^ key) & 0xFF);
+    }
+    fprintf(output_file, "}, %d, %d)", n + 1, key);
+
+    free(bytes);
+    free(raw);
+    return SCANNER_OK;
+}
+
 static int handle_string(
     FILE *input_file,
     FILE *output_file,
-    ScannerOptions options
+    ScannerOptions options,
+    int transformable
 )
 {
+    if (options.hide_strings && transformable)
+    {
+        return transform_string(input_file, output_file);
+    }
+
     int ch;
 
     fputc('"', output_file);
@@ -617,8 +750,15 @@ int scan_file(FILE *input_file, FILE *output_file, ScannerOptions options, NameS
     NameSet macros;
     name_set_init(&macros);
 
+    if (options.hide_strings)
+    {
+        fputs("static char *_sm_dec(char *_s,int _n,int _k){int _i;for(_i=0;_i<_n;_i++)_s[_i]=(char)(_s[_i]^_k);return _s;}\n", output_file);
+    }
+
     int ch;
     int at_line_start = 1;
+    int brace_depth = 0;
+    int prev_char = 0;
 
     while((ch = fgetc(input_file)) != EOF)
     {
@@ -641,7 +781,7 @@ int scan_file(FILE *input_file, FILE *output_file, ScannerOptions options, NameS
         /* String Handler */
         if (ch == '"')
         {
-            if (handle_string(input_file, output_file, options) != SCANNER_OK)
+            if (handle_string(input_file, output_file, options, brace_depth > 0 && (prev_char == '(' || prev_char == ',')) != SCANNER_OK)
             {
                 symbol_table_free(&table);
                 name_set_free(&macros);
@@ -721,6 +861,21 @@ int scan_file(FILE *input_file, FILE *output_file, ScannerOptions options, NameS
 
 
         fputc(ch, output_file); /* non identifier */
+
+        if (ch == '{')
+        {
+            brace_depth += 1;
+        }
+        else if (ch == '}' && brace_depth > 0)
+        {
+            brace_depth -= 1;
+        }
+
+        if (ch != ' ' && ch != '\t' && ch != '\n' && ch != '\r')
+        {
+            prev_char = ch;
+        }
+
         if (ch == '\n')
         {
             at_line_start = 1;

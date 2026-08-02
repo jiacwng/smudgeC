@@ -9,6 +9,7 @@ static void print_usage(void)
     printf("  -a, --all               enable all obfuscation passes\n");
     printf("      --strip-comments    strip comments\n");
     printf("      --encode-strings    encode string literal bytes\n");
+    printf("      --hide-strings      decrypt string arguments at runtime\n");
     printf("      --encode-ints       encode decimal integer literals\n");
     printf("      --no-verify         skip the compile check of the output\n");
     printf("  -h, --help              show help\n");
@@ -42,6 +43,10 @@ int parse_arguments(
         else if (strcmp(arg, "--encode-strings") == 0)
         {
             options->encode_strings = 1;
+        }
+        else if (strcmp(arg, "--hide-strings") == 0)
+        {
+            options->hide_strings = 1;
         }
         else if (strcmp(arg, "--all") == 0)
         {
