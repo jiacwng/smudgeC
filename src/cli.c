@@ -10,6 +10,7 @@ static void print_usage(void)
     printf("      --strip-comments    strip comments\n");
     printf("      --encode-strings    encode string literal bytes\n");
     printf("      --encode-ints       encode decimal integer literals\n");
+    printf("      --no-verify         skip the compile check of the output\n");
     printf("  -h, --help              show help\n");
 }
 
@@ -47,6 +48,10 @@ int parse_arguments(
             options->strip_comments = 1;
             options->encode_ints = 1;
             options->encode_strings = 1;
+        }
+        else if (strcmp(arg, "--no-verify") == 0)
+        {
+            options->verify = 0;
         }
         /* unknown long option */
         else if (arg[0] == '-' && arg[1] == '-')

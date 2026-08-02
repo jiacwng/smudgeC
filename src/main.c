@@ -1,9 +1,40 @@
 #include <stdio.h>
+#include <stdlib.h>
 
 #include "scanner.h"
 #include "names.h"
 #include "path_utils.h"
 #include "cli.h"
+
+
+static int verify_output_compiles(const char *output_path, const char *input_dir)
+{
+    const char *cc = getenv("CC");
+    if (cc == NULL || cc[0] == '\0')
+    {
+        cc = "cc";
+    }
+
+    char command[1024];
+    int written;
+    if (input_dir[0] != '\0')
+    {
+        written = snprintf(command, sizeof(command),
+            "%s -fsyntax-only -I\"%s\" \"%s\"", cc, input_dir, output_path);
+    }
+    else
+    {
+        written = snprintf(command, sizeof(command),
+            "%s -fsyntax-only \"%s\"", cc, output_path);
+    }
+
+    if (written < 0 || written >= (int)sizeof(command))
+    {
+        return 1;
+    }
+
+    return system(command);
+}
 
 
 int main(int argc, char **argv)
@@ -95,6 +126,13 @@ int main(int argc, char **argv)
     name_set_free(&protected_names);
     fclose(input_file);
     fclose(output_file);
+
+    if (options.verify && verify_output_compiles(output_path, input_dir) != 0)
+    {
+        printf("smudgeC: the obfuscated output did not pass a compile check\n");
+        return 1;
+    }
+
     return 0;
 }
 

@@ -11,6 +11,7 @@ void scanner_options_init(ScannerOptions *options)
     options->strip_comments = 0;
     options->encode_ints = 0;
     options->encode_strings = 0;
+    options->verify = 1;
 }
 
 
