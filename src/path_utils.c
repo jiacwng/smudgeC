@@ -115,3 +115,30 @@ int build_output_path(const char *input_path, char *output_path, int output_path
 
     return 0;
 }
+
+void get_input_directory(const char *input_path, char *dir, int dir_size)
+{
+    const char *forward_slash = strrchr(input_path, '/');
+    const char *backslash = strrchr(input_path, '\\');
+    const char *separator = forward_slash;
+
+    if (backslash != NULL && (separator == NULL || backslash > separator))
+    {
+        separator = backslash;
+    }
+
+    if (separator == NULL)
+    {
+        dir[0] = '\0';
+        return;
+    }
+
+    int length = (int)(separator - input_path);
+    if (length >= dir_size)
+    {
+        length = dir_size - 1;
+    }
+
+    memcpy(dir, input_path, length);
+    dir[length] = '\0';
+}

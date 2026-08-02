@@ -67,6 +67,9 @@ int main(int argc, char **argv)
     /* ----------------------------------------------------------------- */
 
 
+    char input_dir[256];
+    get_input_directory(input_path, input_dir, sizeof(input_dir));
+
     NameSet protected_names;
     name_set_init(&protected_names);
     if (load_protected_names("data/protected_names.txt", &protected_names) != 1)
@@ -78,7 +81,7 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    if (scan_file(input_file, output_file, options, &protected_names) != SCANNER_OK)
+    if (scan_file(input_file, output_file, options, &protected_names, input_dir) != SCANNER_OK)
     {
         printf("smudgeC: failed to scan input\n");
         name_set_free(&protected_names);

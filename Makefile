@@ -89,6 +89,13 @@ LIBC_OBFUSCATED_BIN = /tmp/libc_calls_obfuscated
 LIBC_ORIGINAL_OUT = /tmp/libc_calls_original.txt
 LIBC_OBFUSCATED_OUT = /tmp/libc_calls_obfuscated.txt
 
+HEADER_EXAMPLE = tests/fixtures/header_main.c
+HEADER_OBFUSCATED = out/header_main_obfuscated.c
+HEADER_ORIGINAL_BIN = /tmp/header_main_original
+HEADER_OBFUSCATED_BIN = /tmp/header_main_obfuscated
+HEADER_ORIGINAL_OUT = /tmp/header_main_original.txt
+HEADER_OBFUSCATED_OUT = /tmp/header_main_obfuscated.txt
+
 all: $(TARGET)
 
 $(TARGET): $(SRC)
@@ -351,6 +358,19 @@ test: $(TARGET)
 	$(QUIET)diff $(LIBC_ORIGINAL_OUT) $(LIBC_OBFUSCATED_OUT)
 	$(QUIET)grep -q "qsort(" $(LIBC_OBFUSCATED)
 	$(QUIET)grep -q _sm $(LIBC_OBFUSCATED)
+	$(QUIET)echo "  passed"
+
+	$(QUIET) # local header symbol test
+
+	$(QUIET)echo "[test] header_main.c"
+	$(QUIET)$(CC) $(CFLAGS) -Itests/fixtures $(HEADER_EXAMPLE) -o $(HEADER_ORIGINAL_BIN)
+	$(QUIET)$(HEADER_ORIGINAL_BIN) > $(HEADER_ORIGINAL_OUT)
+	$(QUIET)./$(TARGET) $(HEADER_EXAMPLE) > /tmp/smudgec_header_tool.txt
+	$(QUIET)$(CC) $(CFLAGS) -Itests/fixtures $(HEADER_OBFUSCATED) -o $(HEADER_OBFUSCATED_BIN)
+	$(QUIET)$(HEADER_OBFUSCATED_BIN) > $(HEADER_OBFUSCATED_OUT)
+	$(QUIET)diff $(HEADER_ORIGINAL_OUT) $(HEADER_OBFUSCATED_OUT)
+	$(QUIET)grep -q "add_two" $(HEADER_OBFUSCATED)
+	$(QUIET)grep -q _sm $(HEADER_OBFUSCATED)
 	$(QUIET)echo "  passed"
 
 	$(QUIET)echo "[ok] all tests passed"

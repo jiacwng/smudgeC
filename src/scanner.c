@@ -428,7 +428,76 @@ static void record_macro_name(const char *line, NameSet *macros)
     free(name);
 }
 
-static int handle_preprocessor(FILE *input_file, FILE *output_file, NameSet *macros)
+static void record_included_header(const char *line, const char *input_dir, NameSet *protected)
+{
+    int i = 0;
+
+    while (line[i] == ' ' || line[i] == '\t')
+    {
+        i++;
+    }
+
+    const char *keyword = "include";
+    int k = 0;
+    while (keyword[k] != '\0' && line[i] == keyword[k])
+    {
+        i++;
+        k++;
+    }
+
+    if (keyword[k] != '\0')
+    {
+        return;
+    }
+
+    while (line[i] == ' ' || line[i] == '\t')
+    {
+        i++;
+    }
+
+    if (line[i] != '"')
+    {
+        return;
+    }
+    i++;
+
+    int start = i;
+    while (line[i] != '"' && line[i] != '\n' && line[i] != '\0')
+    {
+        i++;
+    }
+
+    if (line[i] != '"')
+    {
+        return;
+    }
+
+    int name_length = i - start;
+    if (name_length == 0)
+    {
+        return;
+    }
+
+    char path[512];
+    int written;
+    if (input_dir[0] != '\0')
+    {
+        written = snprintf(path, sizeof(path), "%s/%.*s", input_dir, name_length, line + start);
+    }
+    else
+    {
+        written = snprintf(path, sizeof(path), "%.*s", name_length, line + start);
+    }
+
+    if (written < 0 || written >= (int)sizeof(path))
+    {
+        return;
+    }
+
+    collect_header_identifiers(path, protected);
+}
+
+static int handle_preprocessor(FILE *input_file, FILE *output_file, NameSet *macros, NameSet *protected, const char *input_dir)
 {
     int ch;
     int buffer_size = 32;
@@ -482,6 +551,7 @@ static int handle_preprocessor(FILE *input_file, FILE *output_file, NameSet *mac
 
     fputs(buffer, output_file);
     record_macro_name(buffer, macros);
+    record_included_header(buffer, input_dir, protected);
 
     free(buffer);
     return SCANNER_OK;
@@ -523,7 +593,7 @@ static int handle_identifier(
 
 
 
-int scan_file(FILE *input_file, FILE *output_file, ScannerOptions options, NameSet *protected)
+int scan_file(FILE *input_file, FILE *output_file, ScannerOptions options, NameSet *protected, const char *input_dir)
 {
     SymbolTable table;
     symbol_table_init(&table);
@@ -540,7 +610,7 @@ int scan_file(FILE *input_file, FILE *output_file, ScannerOptions options, NameS
         
         if (at_line_start && ch == '#')
         {
-            if (handle_preprocessor(input_file, output_file, &macros) != SCANNER_OK)
+            if (handle_preprocessor(input_file, output_file, &macros, protected, input_dir) != SCANNER_OK)
             {
                 symbol_table_free(&table);
                 name_set_free(&macros);
