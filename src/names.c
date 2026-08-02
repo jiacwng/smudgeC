@@ -154,6 +154,82 @@ int is_protected_identifier(char *word)
     return 0;
 }
 
+void name_set_init(NameSet *set)
+{
+    set->names = NULL;
+    set->count = 0;
+    set->capacity = 0;
+}
+
+void name_set_free(NameSet *set)
+{
+    for (int i = 0; i < set->count; i++)
+    {
+        free(set->names[i]);
+    }
+    free(set->names);
+
+    name_set_init(set);
+}
+
+int name_set_contains(const NameSet *set, const char *name)
+{
+    for (int i = 0; i < set->count; i++)
+    {
+        if (strcmp(set->names[i], name) == 0)
+        {
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
+int name_set_add(NameSet *set, const char *name)
+{
+    if (name_set_contains(set, name))
+    {
+        return 1;
+    }
+
+    if (set->count == set->capacity)
+    {
+        if (set->capacity == 0)
+        {
+            set->capacity = 8;
+        }
+        else
+        {
+            set->capacity = set->capacity * 2;
+        }
+
+        char **temp = realloc(set->names, sizeof(char *) * set->capacity);
+        if (temp == NULL)
+        {
+            return 0;
+        }
+
+        set->names = temp;
+    }
+
+    char *copy = malloc(strlen(name) + 1);
+    if (copy == NULL)
+    {
+        return 0;
+    }
+    strcpy(copy, name);
+
+    set->names[set->count] = copy;
+    set->count += 1;
+
+    return 1;
+}
+
+
+
+
+
+
 
 void symbol_table_init(SymbolTable *table)
 {
