@@ -1,6 +1,7 @@
 #include <stdio.h>
 
 #include "scanner.h"
+#include "names.h"
 #include "path_utils.h"
 #include "cli.h"
 
@@ -66,9 +67,21 @@ int main(int argc, char **argv)
     /* ----------------------------------------------------------------- */
 
 
-    if (scan_file(input_file, output_file, options) != SCANNER_OK)
+    NameSet protected_names;
+    name_set_init(&protected_names);
+    if (load_protected_names("data/protected_names.txt", &protected_names) != 1)
+    {
+        printf("smudgeC: could not read data/protected_names.txt\n");
+        name_set_free(&protected_names);
+        fclose(input_file);
+        fclose(output_file);
+        return 1;
+    }
+
+    if (scan_file(input_file, output_file, options, &protected_names) != SCANNER_OK)
     {
         printf("smudgeC: failed to scan input\n");
+        name_set_free(&protected_names);
         fclose(input_file);
         fclose(output_file);
         return 1;
@@ -76,7 +89,7 @@ int main(int argc, char **argv)
 
     printf("wrote: %s\n", output_path);
 
-
+    name_set_free(&protected_names);
     fclose(input_file);
     fclose(output_file);
     return 0;

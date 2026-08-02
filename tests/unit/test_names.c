@@ -4,12 +4,6 @@
 void setUp(void) {}
 void tearDown(void) {}
 
-static void test_protected_identifier_known_and_unknown(void)
-{
-    TEST_ASSERT_EQUAL_INT(1, is_protected_identifier("printf"));
-    TEST_ASSERT_EQUAL_INT(0, is_protected_identifier("my_function"));
-}
-
 static void test_keyword_known_and_unknown(void)
 {
     TEST_ASSERT_EQUAL_INT(1, is_keyword("int"));
@@ -34,11 +28,24 @@ static void test_name_set_add_contains_and_free(void)
     TEST_ASSERT_EQUAL_INT(0, set.count);
 }
 
+static void test_load_protected_names(void)
+{
+    NameSet set;
+    name_set_init(&set);
+
+    TEST_ASSERT_EQUAL_INT(1, load_protected_names("data/protected_names.txt", &set));
+    TEST_ASSERT_EQUAL_INT(1, name_set_contains(&set, "printf"));
+    TEST_ASSERT_EQUAL_INT(1, name_set_contains(&set, "qsort"));
+    TEST_ASSERT_EQUAL_INT(0, name_set_contains(&set, "user_defined_thing"));
+
+    name_set_free(&set);
+}
+
 int main(void)
 {
     UNITY_BEGIN();
-    RUN_TEST(test_protected_identifier_known_and_unknown);
     RUN_TEST(test_keyword_known_and_unknown);
     RUN_TEST(test_name_set_add_contains_and_free);
+    RUN_TEST(test_load_protected_names);
     return UNITY_END();
 }
