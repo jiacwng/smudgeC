@@ -13,6 +13,8 @@ void scanner_options_init(ScannerOptions *options)
     options->encode_ints = 0;
     options->encode_strings = 0;
     options->hide_strings = 0;
+    options->minify = 0;
+    options->prefix = "_sm";
     options->verify = 1;
 }
 
@@ -141,13 +143,11 @@ static void write_encoded_integer(FILE *output_file, const char *number_text)
     }
 }
 
-static int handle_number(
-    FILE *input_file,
-    FILE *output_file,
-    int first_ch,
-    ScannerOptions options
-)
+static int handle_number(ScanContext *ctx, int first_ch)
 {
+    FILE *input_file = ctx->input;
+    FILE *output_file = ctx->output;
+    ScannerOptions options = ctx->options;
     char* number = read_number(input_file, first_ch);
     if (number == NULL)
     {
@@ -348,13 +348,11 @@ static int transform_string(FILE *input_file, FILE *output_file)
     return SCANNER_OK;
 }
 
-static int handle_string(
-    FILE *input_file,
-    FILE *output_file,
-    ScannerOptions options,
-    int transformable
-)
+static int handle_string(ScanContext *ctx, int transformable)
 {
+    FILE *input_file = ctx->input;
+    FILE *output_file = ctx->output;
+    ScannerOptions options = ctx->options;
     if (options.hide_strings && transformable)
     {
         return transform_string(input_file, output_file);
@@ -396,8 +394,10 @@ static int handle_string(
     return SCANNER_OK;
 }
 
-static int handle_char_literal(FILE *input_file, FILE *output_file)
+static int handle_char_literal(ScanContext *ctx)
 {
+    FILE *input_file = ctx->input;
+    FILE *output_file = ctx->output;
     int ch;
 
     fputc('\'', output_file);
@@ -425,14 +425,11 @@ static int handle_char_literal(FILE *input_file, FILE *output_file)
     return SCANNER_OK;
 }
 
-static int handle_comment(
-    FILE *input_file,
-    FILE *output_file,
-    ScannerOptions options,
-    int *handled_comment,
-    int *at_line_start
-)
+static int handle_comment(ScanContext *ctx, int *handled_comment, int *at_line_start)
 {
+    FILE *input_file = ctx->input;
+    FILE *output_file = ctx->output;
+    ScannerOptions options = ctx->options;
     int ch;
     int next = fgetc(input_file);
 
@@ -646,8 +643,13 @@ static void record_included_header(const char *line, const char *input_dir, Name
     collect_header_identifiers(path, protected);
 }
 
-static int handle_preprocessor(FILE *input_file, FILE *output_file, NameSet *macros, NameSet *protected, const char *input_dir)
+static int handle_preprocessor(ScanContext *ctx)
 {
+    FILE *input_file = ctx->input;
+    FILE *output_file = ctx->output;
+    NameSet *macros = ctx->macros;
+    NameSet *protected = ctx->protected;
+    const char *input_dir = ctx->input_dir;
     int ch;
     int buffer_size = 32;
     int length = 0;
@@ -706,15 +708,13 @@ static int handle_preprocessor(FILE *input_file, FILE *output_file, NameSet *mac
     return SCANNER_OK;
 }
 
-static int handle_identifier(
-    FILE *input_file,
-    FILE *output_file,
-    int first_ch,
-    SymbolTable *table,
-    NameSet *macros,
-    NameSet *protected
-)
+static int handle_identifier(ScanContext *ctx, int first_ch)
 {
+    FILE *input_file = ctx->input;
+    FILE *output_file = ctx->output;
+    SymbolTable *table = ctx->table;
+    NameSet *macros = ctx->macros;
+    NameSet *protected = ctx->protected;
     char *identifier = read_identifier(input_file, first_ch);
     if(identifier == NULL)
     {
@@ -727,7 +727,7 @@ static int handle_identifier(
     }
     else
     {
-        char *obfuscated_name = get_obfuscated_name(table, identifier);
+        char *obfuscated_name = get_obfuscated_name(table, identifier, ctx->options.prefix);
         if (obfuscated_name == NULL)
         {
             free(identifier);
@@ -755,18 +755,60 @@ int scan_file(FILE *input_file, FILE *output_file, ScannerOptions options, NameS
         fputs("static char *_sm_dec(char *_s,int _n,int _k){int _i;for(_i=0;_i<_n;_i++)_s[_i]=(char)(_s[_i]^_k);return _s;}\n", output_file);
     }
 
+    ScanContext ctx;
+    ctx.input = input_file;
+    ctx.output = output_file;
+    ctx.options = options;
+    ctx.table = &table;
+    ctx.macros = &macros;
+    ctx.protected = protected;
+    ctx.input_dir = input_dir;
+    ctx.map_file = map_file;
+
     int ch;
     int at_line_start = 1;
     int brace_depth = 0;
     int prev_char = 0;
+    int pending_space = 0;
+    int pending_newline = 0;
 
     while((ch = fgetc(input_file)) != EOF)
     {
+        if (options.minify)
+        {
+            if (ch == ' ' || ch == '\t' || ch == '\r')
+            {
+                pending_space = 1;
+                continue;
+            }
+            if (ch == '\n')
+            {
+                pending_space = 1;
+                pending_newline = 1;
+                continue;
+            }
+            if (pending_space)
+            {
+                if (ch == '#' && pending_newline)
+                {
+                    fputc('\n', output_file);
+                    at_line_start = 1;
+                }
+                else
+                {
+                    fputc(' ', output_file);
+                    at_line_start = 0;
+                }
+            }
+            pending_space = 0;
+            pending_newline = 0;
+        }
+
         /* Preprocessor handler*/
         
         if (at_line_start && ch == '#')
         {
-            if (handle_preprocessor(input_file, output_file, &macros, protected, input_dir) != SCANNER_OK)
+            if (handle_preprocessor(&ctx) != SCANNER_OK)
             {
                 symbol_table_free(&table);
                 name_set_free(&macros);
@@ -781,7 +823,7 @@ int scan_file(FILE *input_file, FILE *output_file, ScannerOptions options, NameS
         /* String Handler */
         if (ch == '"')
         {
-            if (handle_string(input_file, output_file, options, brace_depth > 0 && (prev_char == '(' || prev_char == ',')) != SCANNER_OK)
+            if (handle_string(&ctx, brace_depth > 0 && (prev_char == '(' || prev_char == ',')) != SCANNER_OK)
             {
                 symbol_table_free(&table);
                 name_set_free(&macros);
@@ -795,7 +837,7 @@ int scan_file(FILE *input_file, FILE *output_file, ScannerOptions options, NameS
         /* character-literal handler */
         if (ch == '\'')
         {
-            if (handle_char_literal(input_file, output_file) != SCANNER_OK)
+            if (handle_char_literal(&ctx) != SCANNER_OK)
             {
                 symbol_table_free(&table);
                 name_set_free(&macros);
@@ -811,7 +853,7 @@ int scan_file(FILE *input_file, FILE *output_file, ScannerOptions options, NameS
         {
             int handled_comment;
 
-            if (handle_comment(input_file, output_file, options, &handled_comment, &at_line_start) != SCANNER_OK)
+            if (handle_comment(&ctx, &handled_comment, &at_line_start) != SCANNER_OK)
             {
                 symbol_table_free(&table);
                 name_set_free(&macros);
@@ -831,7 +873,7 @@ int scan_file(FILE *input_file, FILE *output_file, ScannerOptions options, NameS
         /* Number handler */ 
         if (isdigit(ch))
         {
-            if (handle_number(input_file, output_file, ch, options) != SCANNER_OK)
+            if (handle_number(&ctx, ch) != SCANNER_OK)
             {
                 symbol_table_free(&table);
                 name_set_free(&macros);
@@ -847,7 +889,7 @@ int scan_file(FILE *input_file, FILE *output_file, ScannerOptions options, NameS
 
         if(isalpha(ch) || ch == '_')
         {
-            if (handle_identifier(input_file, output_file, ch, &table, &macros, protected) != SCANNER_OK)
+            if (handle_identifier(&ctx, ch) != SCANNER_OK)
             {
                 symbol_table_free(&table);
                 name_set_free(&macros);
