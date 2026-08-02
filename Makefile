@@ -4,6 +4,11 @@ QUIET = @
 TARGET = smudgec
 SRC = src/main.c src/scanner.c src/names.c src/path_utils.c src/cli.c
 
+UNITY = third_party/unity
+UNIT_TEST = tests/unit/test_names.c
+UNIT_SRC = $(UNIT_TEST) src/names.c $(UNITY)/unity.c
+UNIT_BIN = /tmp/smudgec_unit
+
 EXAMPLE = examples/hello.c
 OBFUSCATED = out/hello_obfuscated.c
 ORIGINAL_BIN = /tmp/hello_original
@@ -308,5 +313,12 @@ test: $(TARGET)
 
 	$(QUIET)echo "[ok] all tests passed"
 
+unit:
+	$(QUIET)echo "[unit] names"
+	$(QUIET)$(CC) $(CFLAGS) -I$(UNITY) -Isrc $(UNIT_SRC) -o $(UNIT_BIN)
+	$(QUIET)$(UNIT_BIN)
+
 clean:
 	rm -f $(TARGET)
+
+.PHONY: all test unit clean
