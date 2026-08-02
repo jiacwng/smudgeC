@@ -31,6 +31,9 @@ jobs:
       - name: build and end-to-end tests
         run: make test
 
+      - name: unit tests
+        run: make unit
+
       # build with the memory and undefined-behaviour checkers, then run the tool.
       # -fno-sanitize-recover and halt_on_error make a violation fail the job,
       # otherwise UBSan only prints and CI stays green on a real bug.
