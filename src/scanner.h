@@ -13,6 +13,7 @@ typedef struct
     int strip_comments;
     int encode_ints;
     int encode_strings;
+    int hide_strings;
     int verify;
 } ScannerOptions;
 

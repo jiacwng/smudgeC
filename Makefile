@@ -99,6 +99,13 @@ HEADER_OBFUSCATED_OUT = /tmp/header_main_obfuscated.txt
 
 VERIFY_BREAK = tests/fixtures/verify_break.c
 
+HIDE_STRINGS_EXAMPLE = tests/fixtures/hide_strings.c
+HIDE_STRINGS_OBFUSCATED = out/hide_strings_obfuscated.c
+HIDE_STRINGS_ORIGINAL_BIN = /tmp/hide_strings_original
+HIDE_STRINGS_OBFUSCATED_BIN = /tmp/hide_strings_obfuscated
+HIDE_STRINGS_ORIGINAL_OUT = /tmp/hide_strings_original.txt
+HIDE_STRINGS_OBFUSCATED_OUT = /tmp/hide_strings_obfuscated.txt
+
 all: $(TARGET)
 
 $(TARGET): $(SRC)
@@ -392,6 +399,20 @@ test: $(TARGET)
 	$(QUIET)./$(TARGET) $(EXAMPLE) > /tmp/smudgec_map.txt
 	$(QUIET)test -f out/hello.map
 	$(QUIET)grep -q " -> _sm" out/hello.map
+	$(QUIET)echo "  passed"
+
+	$(QUIET) # hide-strings test
+
+	$(QUIET)echo "[test] hide_strings.c --hide-strings"
+	$(QUIET)$(CC) $(CFLAGS) $(HIDE_STRINGS_EXAMPLE) -o $(HIDE_STRINGS_ORIGINAL_BIN)
+	$(QUIET)$(HIDE_STRINGS_ORIGINAL_BIN) > $(HIDE_STRINGS_ORIGINAL_OUT)
+	$(QUIET)./$(TARGET) --hide-strings $(HIDE_STRINGS_EXAMPLE) > /tmp/smudgec_hide_tool.txt
+	$(QUIET)$(CC) $(CFLAGS) $(HIDE_STRINGS_OBFUSCATED) -o $(HIDE_STRINGS_OBFUSCATED_BIN)
+	$(QUIET)$(HIDE_STRINGS_OBFUSCATED_BIN) > $(HIDE_STRINGS_OBFUSCATED_OUT)
+	$(QUIET)diff $(HIDE_STRINGS_ORIGINAL_OUT) $(HIDE_STRINGS_OBFUSCATED_OUT)
+	$(QUIET)! grep -q "HIDDEN_ARG" $(HIDE_STRINGS_OBFUSCATED)
+	$(QUIET)grep -q "_sm_dec" $(HIDE_STRINGS_OBFUSCATED)
+	$(QUIET)grep -q "SEEN_GLOBAL" $(HIDE_STRINGS_OBFUSCATED)
 	$(QUIET)echo "  passed"
 
 	$(QUIET)echo "[ok] all tests passed"
