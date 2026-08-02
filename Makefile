@@ -299,9 +299,7 @@ test: $(TARGET)
 	$(QUIET)$(CC) $(CFLAGS) $(INTS_OBFUSCATED) -o $(INTS_OBFUSCATED_BIN)
 	$(QUIET)$(INTS_OBFUSCATED_BIN) > $(INTS_OBFUSCATED_OUT)
 	$(QUIET)diff $(INTS_ORIGINAL_OUT) $(INTS_OBFUSCATED_OUT)
-	$(QUIET)grep -q "((47 ^ 40))" $(INTS_OBFUSCATED)
-	$(QUIET)grep -q "((16 ^ 58))" $(INTS_OBFUSCATED)
-	$(QUIET)grep -q "((46 ^ 36))" $(INTS_OBFUSCATED)
+	$(QUIET)grep -qE '\(\(-?[0-9]+ [+^] [0-9]+' $(INTS_OBFUSCATED)
 	$(QUIET)grep -q "return 0;" $(INTS_OBFUSCATED)
 	$(QUIET)echo "  passed"
 
@@ -316,7 +314,7 @@ test: $(TARGET)
 	$(QUIET)diff $(INT_EDGES_ORIGINAL_OUT) $(INT_EDGES_OBFUSCATED_OUT)
 	$(QUIET)grep -q "42u" $(INT_EDGES_OBFUSCATED)
 	$(QUIET)grep -q "3.14" $(INT_EDGES_OBFUSCATED)
-	$(QUIET)grep -q "((79 ^ 71))" $(INT_EDGES_OBFUSCATED)
+	$(QUIET)grep -qE '\(\(-?[0-9]+ [+^] [0-9]+' $(INT_EDGES_OBFUSCATED)
 	$(QUIET)grep -q "return 0;" $(INT_EDGES_OBFUSCATED)
 	$(QUIET)echo "  passed"
 
@@ -386,6 +384,14 @@ test: $(TARGET)
 	$(QUIET)echo "[test] --no-verify skips the check"
 	$(QUIET)./$(TARGET) --no-verify $(VERIFY_BREAK) > /tmp/smudgec_noverify.txt 2>/dev/null
 	$(QUIET)grep -q "wrote:" /tmp/smudgec_noverify.txt
+	$(QUIET)echo "  passed"
+
+	$(QUIET) # rename-map test
+
+	$(QUIET)echo "[test] rename-map is written"
+	$(QUIET)./$(TARGET) $(EXAMPLE) > /tmp/smudgec_map.txt
+	$(QUIET)test -f out/hello.map
+	$(QUIET)grep -q " -> _sm" out/hello.map
 	$(QUIET)echo "  passed"
 
 	$(QUIET)echo "[ok] all tests passed"

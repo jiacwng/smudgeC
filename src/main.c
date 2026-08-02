@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "scanner.h"
 #include "names.h"
@@ -131,9 +132,23 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    if (scan_file(input_file, output_file, options, &protected_names, input_dir) != SCANNER_OK)
+    char map_path[256];
+    strcpy(map_path, output_path);
+    char *map_suffix = strstr(map_path, "_obfuscated.c");
+    FILE *map_file = NULL;
+    if (map_suffix != NULL)
+    {
+        strcpy(map_suffix, ".map");
+        map_file = fopen(map_path, "w");
+    }
+
+    if (scan_file(input_file, output_file, options, &protected_names, input_dir, map_file) != SCANNER_OK)
     {
         printf("smudgeC: failed to scan input\n");
+        if (map_file != NULL)
+        {
+            fclose(map_file);
+        }
         name_set_free(&protected_names);
         fclose(input_file);
         fclose(output_file);
@@ -142,6 +157,10 @@ int main(int argc, char **argv)
 
     printf("wrote: %s\n", output_path);
 
+    if (map_file != NULL)
+    {
+        fclose(map_file);
+    }
     name_set_free(&protected_names);
     fclose(input_file);
     fclose(output_file);
