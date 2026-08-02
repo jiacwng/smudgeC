@@ -1,0 +1,28 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # our own code must be warning-clean; CI treats warnings as errors
+      - name: strict build (warnings are errors)
+        run: gcc -std=c99 -Wall -Wextra -pedantic -Werror -c src/*.c
+
+      # build the tool and run the end-to-end regression pipeline
+      - name: build and end-to-end tests
+        run: make test
+
+      # build with the memory and undefined-behaviour checkers, then run the tool
+      - name: sanitizer build and run
+        run: |
+          gcc -std=c99 -Wall -Wextra -pedantic -fsanitize=address,undefined -g \
+              src/main.c src/scanner.c src/names.c src/path_utils.c src/cli.c \
+              -o smudgec_san
+          ./smudgec_san examples/hello.c
+          ./smudgec_san --all examples/hello.c
