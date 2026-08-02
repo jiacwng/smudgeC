@@ -103,7 +103,26 @@ int main(int argc, char **argv)
 
     NameSet protected_names;
     name_set_init(&protected_names);
-    if (load_protected_names("data/protected_names.txt", &protected_names) != 1)
+
+    int names_loaded = 0;
+    char exe_dir[256];
+    if (get_executable_dir(exe_dir, sizeof(exe_dir)))
+    {
+        char data_path[512];
+        int written = snprintf(data_path, sizeof(data_path),
+            "%s/data/protected_names.txt", exe_dir);
+        if (written > 0 && written < (int)sizeof(data_path))
+        {
+            names_loaded = load_protected_names(data_path, &protected_names);
+        }
+    }
+
+    if (!names_loaded)
+    {
+        names_loaded = load_protected_names("data/protected_names.txt", &protected_names);
+    }
+
+    if (!names_loaded)
     {
         printf("smudgeC: could not read data/protected_names.txt\n");
         name_set_free(&protected_names);
