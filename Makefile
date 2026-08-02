@@ -1,4 +1,5 @@
 CC = gcc
+export CC
 CFLAGS = -std=c99 -Wall -Wextra -pedantic
 QUIET = @
 TARGET = smudgec
@@ -95,6 +96,8 @@ HEADER_ORIGINAL_BIN = /tmp/header_main_original
 HEADER_OBFUSCATED_BIN = /tmp/header_main_obfuscated
 HEADER_ORIGINAL_OUT = /tmp/header_main_original.txt
 HEADER_OBFUSCATED_OUT = /tmp/header_main_obfuscated.txt
+
+VERIFY_BREAK = tests/fixtures/verify_break.c
 
 all: $(TARGET)
 
@@ -371,6 +374,18 @@ test: $(TARGET)
 	$(QUIET)diff $(HEADER_ORIGINAL_OUT) $(HEADER_OBFUSCATED_OUT)
 	$(QUIET)grep -q "add_two" $(HEADER_OBFUSCATED)
 	$(QUIET)grep -q _sm $(HEADER_OBFUSCATED)
+	$(QUIET)echo "  passed"
+
+	$(QUIET) # verify-after test
+
+	$(QUIET)echo "[test] verify-after catches broken output"
+	$(QUIET)! ./$(TARGET) $(VERIFY_BREAK) > /tmp/smudgec_verify.txt 2>/dev/null
+	$(QUIET)grep -q "did not pass a compile check" /tmp/smudgec_verify.txt
+	$(QUIET)echo "  passed"
+
+	$(QUIET)echo "[test] --no-verify skips the check"
+	$(QUIET)./$(TARGET) --no-verify $(VERIFY_BREAK) > /tmp/smudgec_noverify.txt 2>/dev/null
+	$(QUIET)grep -q "wrote:" /tmp/smudgec_noverify.txt
 	$(QUIET)echo "  passed"
 
 	$(QUIET)echo "[ok] all tests passed"
